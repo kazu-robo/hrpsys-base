@@ -841,10 +841,10 @@ void AutoBalancer::getOutputParametersForIDLE ()
             m_controlSwingSupportTime.data[contact_states_index_map[it->first]] = m_optionalData.data[contact_states_index_map[it->first]+contact_states_index_map.size()];
         }
         // If two feet have no contact, force set double support contact
-        if ( !m_contactStates.data[contact_states_index_map["rleg"]] && !m_contactStates.data[contact_states_index_map["lleg"]] ) {
-            m_contactStates.data[contact_states_index_map["rleg"]] = true;
-            m_contactStates.data[contact_states_index_map["lleg"]] = true;
-        }
+        // if ( !m_contactStates.data[contact_states_index_map["rleg"]] && !m_contactStates.data[contact_states_index_map["lleg"]] ) {
+        //     m_contactStates.data[contact_states_index_map["rleg"]] = true;
+        //     m_contactStates.data[contact_states_index_map["lleg"]] = true;
+        // }
     }
     for ( std::map<std::string, ABCIKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
         size_t idx = contact_states_index_map[it->first];
