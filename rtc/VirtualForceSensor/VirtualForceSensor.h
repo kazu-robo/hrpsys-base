@@ -11,19 +11,29 @@
 #define VIRTUAL_FORCE_SENSOR_H
 
 #include <rtm/idl/BasicDataType.hh>
+#include <rtm/idl/ExtendedDataTypes.hh>
 #include <rtm/Manager.h>
 #include <rtm/DataFlowComponentBase.h>
 #include <rtm/CorbaPort.h>
 #include <rtm/DataInPort.h>
 #include <rtm/DataOutPort.h>
 #include <rtm/idl/BasicDataTypeSkel.h>
+#include <rtm/idl/ExtendedDataTypesSkel.h>
 
 #include <hrpModel/Body.h>
 #include <hrpModel/Link.h>
+#include <hrpModel/Sensor.h>
 #include <hrpModel/JointPath.h>
 #include <hrpUtil/EigenTypes.h>
 
 #include "VirtualForceSensorService_impl.h"
+#include "../ImpedanceController/JointPathEx.h"
+#include "../TorqueFilter/IIRFilter.h"
+#include "../ImpedanceController/RatsMatrix.h"
+
+#include <semaphore.h>
+
+#include <qpOASES.hpp>
 
 // Service implementation headers
 // <rtc-template block="service_impl_h">
@@ -36,6 +46,44 @@
 // </rtc-template>
 
 using namespace RTC;
+
+class VirtualForceSensorParam {
+public:
+    bool is_enable;
+    std::string target_name;
+    hrp::Vector3 p;
+    hrp::Matrix33 R;
+    hrp::Vector3 forceOffset;
+    hrp::Vector3 momentOffset;
+    hrp::Vector3 forceOffset_sum;
+    hrp::Vector3 momentOffset_sum;
+    hrp::JointPathExPtr path;
+    double friction_coefficient;
+    double rotation_friction_coefficient;
+    double upper_cop_x_margin;
+    double lower_cop_x_margin;
+    double upper_cop_y_margin;
+    double lower_cop_y_margin;
+    sem_t wait_sem;
+    size_t offset_calib_counter;
+    size_t max_offset_calib_counter;
+
+    hrp::Vector3 sensor_force;
+    hrp::Vector3 sensor_moment;
+    hrp::Vector3 off_sensor_force;
+    hrp::Vector3 off_sensor_moment;
+    boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > off_sensor_force_filter;
+    boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > off_sensor_moment_filter;
+
+    VirtualForceSensorParam ()
+        : wait_sem(),
+          offset_calib_counter(0),
+          sensor_force(hrp::Vector3::Zero()),
+          sensor_moment(hrp::Vector3::Zero())
+    {
+          sem_init(&wait_sem, 0, 0);
+      }
+};
 
 /**
    \brief sample RT component which has one data input port and one data output port
@@ -102,7 +150,16 @@ class VirtualForceSensor
   // no corresponding operation exists in OpenRTm-aist-0.2.0
   // virtual RTC::ReturnCode_t onRateChanged(RTC::UniqueId ec_id);
 
-  bool removeVirtualForceSensorOffset(std::string sensorName);
+  void getParameter(OpenHRP::VirtualForceSensorService::vsParam& i_stp);
+  void setParameter(const OpenHRP::VirtualForceSensorService::vsParam& i_stp);
+
+  bool removeVirtualForceSensorOffset(const ::OpenHRP::VirtualForceSensorService::StrSequence& sensorNames, const double tm);
+
+  bool removeExternalForceOffset(const double tm);
+
+  bool startEstimation(const std::string& sensorName);
+
+  bool stopEstimation(const std::string& sensorName);
 
  protected:
   // Configuration variable declaration
@@ -112,11 +169,15 @@ class VirtualForceSensor
   // TimedDoubleSeq m_qRef;
   TimedDoubleSeq m_qCurrent;
   TimedDoubleSeq m_tauIn;
+  TimedOrientation3D m_baseRpy;
+  std::vector<TimedDoubleSeq> m_wrenches;
   
   // DataInPort declaration
   // <rtc-template block="inport_declare">
   InPort<TimedDoubleSeq> m_qCurrentIn;
   InPort<TimedDoubleSeq> m_tauInIn;
+  InPort<TimedOrientation3D> m_baseRpyIn;
+  std::vector<RTC::InPort<TimedDoubleSeq> *> m_wrenchesIn; 
   
   // </rtc-template>
 
@@ -124,6 +185,9 @@ class VirtualForceSensor
   // <rtc-template block="outport_declare">
   std::vector<TimedDoubleSeq> m_force;
   std::vector<OutPort<TimedDoubleSeq> *> m_forceOut;
+  std::vector<TimedDoubleSeq> m_offforce;
+  std::vector<OutPort<TimedDoubleSeq> *> m_offforceOut;
+
   
   // </rtc-template>
 
@@ -150,21 +214,44 @@ class VirtualForceSensor
   // </rtc-template>
 
  private:
-  struct VirtualForceSensorParam {
-    std::string base_name, target_name;
-    hrp::Vector3 p;
-    hrp::Matrix33 R;
-    hrp::Vector3 forceOffset;
-    hrp::Vector3 momentOffset;
-    hrp::JointPathPtr path;
-  };
-  std::map<std::string, VirtualForceSensorParam> m_sensors;
+  std::map<std::string, boost::shared_ptr<VirtualForceSensorParam> > m_sensors;
   double m_dt;
   hrp::BodyPtr m_robot;
   unsigned int m_debugLevel;
 
-  bool calcRawVirtualForce(std::string sensorName, hrp::dvector &outputForce);
-  
+  boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> > qCurrentFilter;
+  boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> > dqCurrentFilter;
+  boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> > ddqCurrentFilter;
+  boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> > basewFilter;
+  boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> > basedwFilter;
+  boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> > tauFilter;
+  std::vector<boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector6> > > wrenchFilter;
+  hrp::dvector qprev;
+  hrp::dvector dqprev;
+  hrp::Matrix33 baseRprev;
+  hrp::Vector3 basewprev;
+
+  hrp::Vector3 extforceOffset;
+  hrp::Vector3 extmomentOffset;
+  hrp::dvector exttorqueOffset;
+  hrp::Vector3 extforceOffset_sum;
+  hrp::Vector3 extmomentOffset_sum;
+  hrp::dvector exttorqueOffset_sum;
+  sem_t extforce_wait_sem;
+  size_t extforce_offset_calib_counter;
+  size_t max_extforce_offset_calib_counter;
+    
+  std::vector<hrp::JointPathExPtr> jpe_v;
+
+  coil::Mutex m_mutex;
+
+  std::map<std::pair<int, int>, boost::shared_ptr<qpOASES::SQProblem> > sqp_map;
+
+  double root_force_weight;
+  double root_moment_weight;
+  double joint_torque_weight;
+  double weight;
+
 };
 
 

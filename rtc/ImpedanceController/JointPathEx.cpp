@@ -104,6 +104,50 @@ JointPathEx::JointPathEx(BodyPtr& robot, Link* base, Link* end, double control_c
   }
 }
 
+void JointPathEx::calcJacobian(dmatrix& out_J, const Vector3& local_p) const
+{
+    const int n = joints.size();
+    out_J.resize(6, n);
+
+    if(n > 0){
+
+        Link* targetLink = endLink();
+
+        for(int i=0; i < n; ++i){
+
+            Link* link = joints[i];
+
+            switch(link->jointType){
+
+            case Link::ROTATIONAL_JOINT:
+                {
+                    Vector3 omega(link->R * link->a);
+                    Vector3 arm(targetLink->p + targetLink->R * local_p - link->p);
+                    if(!isJointDownward(i)){
+                        omega *= -1.0;
+                    }
+                    Vector3 dp(omega.cross(arm));
+                    out_J.col(i) << dp, omega;
+                }
+                break;
+
+            case Link::SLIDE_JOINT:
+                {
+                    Vector3 dp(link->R * link->d);
+                    if(!isJointDownward(i)){
+                        dp *= -1.0;
+                    }
+                    out_J.col(i) << dp, Vector3::Zero();
+                }
+                break;
+
+            default:
+                out_J.col(i).setZero();
+            }
+        }
+    }
+}
+
 void JointPathEx::setMaxIKError(double epos, double erot) {
   maxIKPosErrorSqr = epos*epos;
   maxIKRotErrorSqr = erot*erot;

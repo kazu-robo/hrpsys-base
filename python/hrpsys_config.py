@@ -486,7 +486,14 @@ class HrpsysConfigurator(object):
         # connection for vs
         if self.vs:
             connectPorts(self.rh.port("q"), self.vs.port("qCurrent"))
-            connectPorts(self.tf.port("tauOut"), self.vs.port("tauIn"))
+            if self.kf:
+                connectPorts(self.kf.port("rpy"), self.vs.port("baseRpy"))
+            if self.tf:
+                connectPorts(self.tf.port("tauOut"), self.vs.port("tauIn"))
+            else:
+                connectPorts(self.rh.port("tau"), self.vs.port("tauIn"))
+            for sen in filter(lambda x: x.type == "Force", self.sensors):
+                connectPorts(self.rmfo.port("off_" + sen.name), self.vs.port(sen.name))
             #  virtual force sensors
             if self.ic:
                 for vfp in filter(lambda x: str.find(x, 'v') >= 0 and

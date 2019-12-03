@@ -11,12 +11,54 @@ module OpenHRP
   
   interface VirtualForceSensorService
   {
+    typedef sequence<string> StrSequence;
+
+    /**
+     * @struct stParam
+     * @brief VirtualForceSensor Parameters.
+     */
+    struct vsParam {
+        double root_force_weight;
+        double root_moment_weight;
+        double joint_torque_weight;
+        double weight;
+
+        double q_cutoff_freq;
+        double tau_cutoff_freq;
+        double wrench_cutoff_freq;
+        double out_cutoff_freq;
+    };
+
+    /**
+     * @brief Get VirtualForceSensor parameters.
+     * @param i_param is output parameters
+     * @return true if set successfully, false otherwise
+     */
+    void getParameter(out vsParam i_param);
+
+    /**
+     * @brief Set VirtualForceSensor parameters.
+     * @param i_param is input parameters
+     * @return true if set successfully, false otherwise
+     */
+    void setParameter(in vsParam i_param);
+
     /**
      * @brief set virtual force sensor offset.
      * @param sensroName is target virtual force sensor name
      * @return true if set successfully, false otherwise
      */
-    boolean removeVirtualForceSensorOffset(in string sensorName);
+    boolean removeVirtualForceSensorOffset(in StrSequence sensorNames, in double tm);
+
+    /**
+     * @brief set external force offset.
+     * @return true if set successfully, false otherwise
+     */
+    boolean removeExternalForceOffset(in double tm);
+
+    boolean startEstimation(in string sensorName);
+
+    boolean stopEstimation(in string sensorName);
   };
 };
 
