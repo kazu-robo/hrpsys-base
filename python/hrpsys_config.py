@@ -883,6 +883,8 @@ class HrpsysConfigurator(object):
         #
         if self.kf != None:
             self.connectLoggerPort(self.kf, 'rpy')
+        if self.vs != None:
+            self.connectLoggerPort(self.vs, 'off_hipestimation')
         if self.sh != None:
             self.connectLoggerPort(self.sh, 'qOut')
             self.connectLoggerPort(self.sh, 'tqOut')
