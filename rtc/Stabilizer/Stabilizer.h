@@ -316,7 +316,8 @@ class Stabilizer
   rats::coordinates target_foot_midcoords;
   hrp::Vector3 ref_zmp, ref_cog, ref_cp, ref_cogvel, rel_ref_cp, prev_ref_cog, prev_ref_zmp;
   hrp::Vector3 act_zmp, act_cog, act_cogvel, act_cp, rel_act_zmp, rel_act_cp, prev_act_cog, act_base_rpy, current_base_rpy, current_base_pos, sbp_cog_offset, cp_offset, diff_cp;
-  hrp::Vector3 foot_origin_offset[2];
+  // hrp::Vector3 foot_origin_offset[2];
+  std::vector<hrp::Vector3> foot_origin_offset;
   std::vector<double> prev_act_force_z;
   double zmp_origin_off, transition_smooth_gain, d_pos_z_root, limb_stretch_avoidance_time_const, limb_stretch_avoidance_vlimit[2], root_rot_compensation_limit[2];
   boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> > act_cogvel_filter;

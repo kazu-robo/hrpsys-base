@@ -208,7 +208,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   }
 
   // load virtual force sensors
-  readVirtualForceSensorParamFromProperties(m_vfs, m_robot, prop["virtual_force_sensor"], std::string(m_profile.instance_name));
+  readVirtualForceSensorParamFromProperties(m_vfs, m_robot, prop["virtual_force_sensor2"], std::string(m_profile.instance_name));//sensor2
   int nvforce = m_vfs.size();
   for (unsigned int i=0; i<nvforce; ++i) {
       for ( std::map<std::string, hrp::VirtualForceSensorParam>::iterator it = m_vfs.begin(); it != m_vfs.end(); it++ ) {
@@ -271,13 +271,30 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
       ikp.ee_name = ee_name;
       {
           bool is_ee_exists = false;
-          for (size_t j = 0; j < npforce; j++) {
-              hrp::Sensor* sensor = m_robot->sensor(hrp::Sensor::FORCE, j);
+          // for (size_t j = 0; j < npforce; j++) {
+          //     hrp::Sensor* sensor = m_robot->sensor(hrp::Sensor::FORCE, j);
+          for (unsigned int j=0; j<m_wrenchesIn.size(); j++){
+              std::string sensor_name = m_wrenchesIn[j]->name();
+              hrp::ForceSensor* sensor = m_robot->sensor<hrp::ForceSensor>(sensor_name);
+              std::string sensor_link_name;
+              if ( sensor ) { // real force sensor
+                  sensor_link_name = sensor->link->name;
+              } else if ( m_vfs.find(sensor_name) !=  m_vfs.end()) { // virtual force sensor
+                  sensor_link_name = m_vfs[sensor_name].link->name;
+                  std::cerr << "########## vs : " << sensor_name << std::endl;
+              } else {
+                  std::cerr << "[" << m_profile.instance_name << "]   unknown force param" << std::endl;
+                  continue;
+              }
+
               hrp::Link* alink = m_robot->link(ikp.target_name);
               while (alink != NULL && alink->name != ee_base && !is_ee_exists) {
-                  if ( alink->name == sensor->link->name ) {
+                  // if ( alink->name == sensor->link->name ) {
+                  if ( alink->name == sensor_link_name ) {
                       is_ee_exists = true;
-                      ikp.sensor_name = sensor->name;
+                      // ikp.sensor_name = sensor->name;
+                      ikp.sensor_name = sensor_name;
+                      std::cerr << "########## ee : " << sensor_link_name << " " << sensor_name << std::endl;
                   }
                   alink = alink->parent;
               }
@@ -329,6 +346,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
       is_feedback_control_enable.push_back( (ee_name.find("leg") != std::string::npos ? true : false) ); // Hands feedback control => disabled, feet feedback control => enabled, by default
       is_zmp_calc_enable.push_back( (ee_name.find("leg") != std::string::npos ? true : false) ); // To zmp calculation, hands are disabled and feet are enabled, by default
       std::cerr << "[" << m_profile.instance_name << "] End Effector [" << ee_name << "]" << std::endl;
+      std::cerr << "[" << m_profile.instance_name << "]   is_zmp_calc_enable :" << is_zmp_calc_enable.back() << std::endl;
       std::cerr << "[" << m_profile.instance_name << "]   target = " << m_robot->link(ikp.target_name)->name << ", base = " << ee_base << ", sensor_name = " << ikp.sensor_name << std::endl;
       std::cerr << "[" << m_profile.instance_name << "]   offset_pos = " << ikp.localp.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << "[m]" << std::endl;
       prev_act_force_z.push_back(0.0);
@@ -480,6 +498,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
       m_COPInfo.data[i] = 0.0;
   }
   transition_time = 2.0;
+  foot_origin_offset.resize(2);
   foot_origin_offset[0] = hrp::Vector3::Zero();
   foot_origin_offset[1] = hrp::Vector3::Zero();
 
@@ -515,6 +534,7 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
   if (sen == NULL) {
       std::cerr << "[" << m_profile.instance_name << "] WARNING! This robot model has no GyroSensor named 'gyrometer'! " << std::endl;
   }
+ std::cerr << "[" << m_profile.instance_name << "] onInitialize() finished " << std::endl;
   return RTC::RTC_OK;
 }
 
@@ -564,6 +584,11 @@ RTC::ReturnCode_t Stabilizer::onDeactivated(RTC::UniqueId ec_id)
 #define DEBUGP2 (loop%10==0)
 RTC::ReturnCode_t Stabilizer::onExecute(RTC::UniqueId ec_id)
 {
+    static int a = 0;
+    a++;
+    if (a % 1000 == 0){
+        std::cout << "hello" << std::endl;
+    }
   loop++;
   // std::cout << m_profile.instance_name<< ": onExecute(" << ec_id << ")" << std::endl;
 
@@ -771,7 +796,7 @@ RTC::ReturnCode_t Stabilizer::onExecute(RTC::UniqueId ec_id)
       m_emergencySignalOut.write();
     }
   }
-
+    
   return RTC::RTC_OK;
 }
 
@@ -791,9 +816,19 @@ void Stabilizer::calcFootOriginCoords (hrp::Vector3& foot_origin_pos, hrp::Matri
   hrp::Vector3 ex = hrp::Vector3::UnitX();
   for (size_t i = 0; i < stikp.size(); i++) {
     if (stikp[i].ee_name.find("leg") == std::string::npos) continue;
-    hrp::Link* target = m_robot->sensor<hrp::ForceSensor>(stikp[i].sensor_name)->link;
-    leg_c[i].pos = target->p + target->R * foot_origin_offset[i];
-    hrp::Vector3 xv1(target->R * ex);
+    hrp::Link* target = m_robot->sensor<hrp::ForceSensor>(stikp[i].sensor_name)->link;//todo
+    // leg_c[i].pos = target->p + target->R * foot_origin_offset[i];
+    // hrp::Vector3 xv1(target->R * ex);
+    hrp::Vector3 xv1 = hrp::Vector3::Zero();
+    if ( target ) { // real force sensor
+        leg_c[i].pos = target->p + target->R * foot_origin_offset[i];
+        xv1 = target->R * ex;
+    } else if ( m_vfs.find(stikp[i].sensor_name) !=  m_vfs.end()) { // virtual force sensor
+        leg_c[i].pos = m_robot->link(m_vfs[stikp[i].sensor_name].link->name)->p + m_robot->link(m_vfs[stikp[i].sensor_name].link->name)->R * foot_origin_offset[i];//offset?
+        xv1 = m_robot->link(m_vfs[stikp[i].sensor_name].link->name)->R * ex;
+    } else {
+        continue;
+    }
     xv1(2)=0.0;
     xv1.normalize();
     hrp::Vector3 yv1(ez.cross(xv1));
@@ -1012,25 +1047,41 @@ void Stabilizer::getActualParameters ()
 
     // foor modif
     if (control_mode == MODE_ST) {
-      hrp::Vector3 f_diff(hrp::Vector3::Zero());
-      std::vector<bool> large_swing_f_diff(3, false);
+    // if (control_mode == MODE_ST && joint_control_mode != OpenHRP::RobotHardwareService::TORQUE) {
+        hrp::Vector3 f_diff(hrp::Vector3::Zero());
+        std::vector<bool> large_swing_f_diff(3, false);
       // moment control
       act_total_foot_origin_moment = hrp::Vector3::Zero();
       for (size_t i = 0; i < stikp.size(); i++) {
         STIKParam& ikp = stikp[i];
         std::vector<bool> large_swing_m_diff(3, false);
         if (!is_feedback_control_enable[i]) continue;
-        hrp::Sensor* sensor = m_robot->sensor<hrp::ForceSensor>(ikp.sensor_name);
+        hrp::Sensor* sensor = m_robot->sensor<hrp::ForceSensor>(ikp.sensor_name);//todo m_robot -> if sentence
         hrp::Link* target = m_robot->link(ikp.target_name);
         // Convert moment at COP => moment at ee
         size_t idx = contact_states_index_map[ikp.ee_name];
         ikp.ref_moment = tmp_ref_moment[idx] + ((target->R * ikp.localCOPPos + target->p) - (target->R * ikp.localp + target->p)).cross(tmp_ref_force[idx]);
         ikp.ref_force = tmp_ref_force[idx];
         // Actual world frame =>
-        hrp::Vector3 sensor_force = (sensor->link->R * sensor->localR) * hrp::Vector3(m_wrenches[i].data[0], m_wrenches[i].data[1], m_wrenches[i].data[2]);
-        hrp::Vector3 sensor_moment = (sensor->link->R * sensor->localR) * hrp::Vector3(m_wrenches[i].data[3], m_wrenches[i].data[4], m_wrenches[i].data[5]);
-        //hrp::Vector3 ee_moment = ((sensor->link->R * sensor->localPos + sensor->link->p) - (target->R * ikp.localCOPPos + target->p)).cross(sensor_force) + sensor_moment;
-        hrp::Vector3 ee_moment = ((sensor->link->R * sensor->localPos + sensor->link->p) - (target->R * ikp.localp + target->p)).cross(sensor_force) + sensor_moment;
+        // hrp::Vector3 sensor_force = (sensor->link->R * sensor->localR) * hrp::Vector3(m_wrenches[i].data[0], m_wrenches[i].data[1], m_wrenches[i].data[2]);
+        // hrp::Vector3 sensor_moment = (sensor->link->R * sensor->localR) * hrp::Vector3(m_wrenches[i].data[3], m_wrenches[i].data[4], m_wrenches[i].data[5]);
+        hrp::Vector3 sensor_force;
+        hrp::Vector3 sensor_moment;
+        hrp::Vector3 ee_moment;
+        if ( sensor ) {//real force sensor
+            sensor_force = (sensor->link->R * sensor->localR) * hrp::Vector3(m_wrenches[i].data[0], m_wrenches[i].data[1], m_wrenches[i].data[2]);
+            sensor_moment = (sensor->link->R * sensor->localR) * hrp::Vector3(m_wrenches[i].data[3], m_wrenches[i].data[4], m_wrenches[i].data[5]);
+            ee_moment = ((sensor->link->R * sensor->localPos + sensor->link->p) - (target->R * ikp.localp + target->p)).cross(sensor_force) + sensor_moment;
+        } else if ( m_vfs.find(stikp[i].sensor_name) !=  m_vfs.end() ) {//virtual force sensor
+            sensor_force = (m_robot->link(m_vfs[stikp[i].sensor_name].link->name)->R * m_vfs[stikp[i].sensor_name].localR) * hrp::Vector3(m_wrenches[i].data[0], m_wrenches[i].data[1], m_wrenches[i].data[2]);//m_wrenches?
+            sensor_moment = (m_robot->link(m_vfs[stikp[i].sensor_name].link->name)->R * m_vfs[stikp[i].sensor_name].localR) * hrp::Vector3(m_wrenches[i].data[3], m_wrenches[i].data[4], m_wrenches[i].data[5]);
+            ee_moment = ((m_robot->link(m_vfs[stikp[i].sensor_name].link->name)->R * m_vfs[stikp[i].sensor_name].localPos + m_robot->link(m_vfs[stikp[i].sensor_name].link->name)->p) - (target->R * ikp.localp + target->p)).cross(sensor_force) + sensor_moment;
+        } else {
+            continue;
+        }
+        
+//hrp::Vector3 ee_moment = ((sensor->link->R * sensor->localPos + sensor->link->p) - (target->R * ikp.localCOPPos + target->p)).cross(sensor_force) + sensor_moment;
+        // hrp::Vector3 ee_moment = ((sensor->link->R * sensor->localPos + sensor->link->p) - (target->R * ikp.localp + target->p)).cross(sensor_force) + sensor_moment;
         // <= Actual world frame
         hrp::Matrix33 ee_R(target->R * ikp.localR);
         // Actual ee frame =>
@@ -1303,10 +1354,21 @@ bool Stabilizer::calcZMP(hrp::Vector3& ret_zmp, const double zmp_z)
   double tmpfz = 0, tmpfz2 = 0.0;
   for (size_t i = 0; i < stikp.size(); i++) {
     if (!is_zmp_calc_enable[i]) continue;
-    hrp::ForceSensor* sensor = m_robot->sensor<hrp::ForceSensor>(stikp[i].sensor_name);
-    hrp::Vector3 fsp = sensor->link->p + sensor->link->R * sensor->localPos;
+    hrp::ForceSensor* sensor = m_robot->sensor<hrp::ForceSensor>(stikp[i].sensor_name);//todo
+    // hrp::Vector3 fsp = sensor->link->p + sensor->link->R * sensor->localPos;
+    hrp::Vector3 fsp;
     hrp::Matrix33 tmpR;
-    rats::rotm3times(tmpR, sensor->link->R, sensor->localR);
+    // rats::rotm3times(tmpR, sensor->link->R, sensor->localR);
+    if ( sensor ) { // real force sensor
+        fsp = sensor->link->p + sensor->link->R * sensor->localPos;
+        rats::rotm3times(tmpR, sensor->link->R, sensor->localR);
+    } else if ( m_vfs.find(stikp[i].sensor_name) !=  m_vfs.end()) { // virtual force sensor
+        fsp = m_robot->link(m_vfs[stikp[i].sensor_name].link->name)->p + m_robot->link(m_vfs[stikp[i].sensor_name].link->name)->R * m_vfs[stikp[i].sensor_name].localPos;
+        rats::rotm3times(tmpR, m_robot->link(m_vfs[stikp[i].sensor_name].link->name)->R, m_vfs[stikp[i].sensor_name].localR);
+    } else {
+        continue;
+    }
+
     hrp::Vector3 nf = tmpR * hrp::Vector3(m_wrenches[i].data[0], m_wrenches[i].data[1], m_wrenches[i].data[2]);
     hrp::Vector3 nm = tmpR * hrp::Vector3(m_wrenches[i].data[3], m_wrenches[i].data[4], m_wrenches[i].data[5]);
     tmpzmpx += nf(2) * fsp(0) - (fsp(2) - zmp_z) * nf(0) - nm(1);
@@ -2036,7 +2098,8 @@ void Stabilizer::getParameter(OpenHRP::StabilizerService::stParam& i_stp)
       i_stp.is_zmp_calc_enable[i] = is_zmp_calc_enable[i];
   }
 
-  i_stp.foot_origin_offset.length(2);
+  // i_stp.foot_origin_offset.length(2);
+  i_stp.foot_origin_offset.length(foot_origin_offset.size());
   for (size_t i = 0; i < i_stp.foot_origin_offset.length(); i++) {
       i_stp.foot_origin_offset[i].length(3);
       i_stp.foot_origin_offset[i][0] = foot_origin_offset[i](0);
@@ -2284,11 +2347,13 @@ void Stabilizer::setParameter(const OpenHRP::StabilizerService::stParam& i_stp)
       std::cerr << "[" << m_profile.instance_name << "]   localpos = " << it->localp.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << "[m]" << std::endl;
       std::cerr << "[" << m_profile.instance_name << "]   localR = " << it->localR.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", "", "    [", "]")) << std::endl;
   }
-  if (i_stp.foot_origin_offset.length () != 2) {
-      std::cerr << "[" << m_profile.instance_name << "]   foot_origin_offset cannot be set. Length " << i_stp.foot_origin_offset.length() << " != " << 2 << std::endl;
-  } else if (control_mode != MODE_IDLE) {
+  // if (i_stp.foot_origin_offset.length () != 2) {
+  //     std::cerr << "[" << m_profile.instance_name << "]   foot_origin_offset cannot be set. Length " << i_stp.foot_origin_offset.length() << " != " << 2 << std::endl;
+  // } else if (control_mode != MODE_IDLE) {
+  if (control_mode != MODE_IDLE) {
       std::cerr << "[" << m_profile.instance_name << "]   foot_origin_offset cannot be set. Current control_mode is " << control_mode << std::endl;
   } else {
+      foot_origin_offset.resize(i_stp.foot_origin_offset.length());
       for (size_t i = 0; i < i_stp.foot_origin_offset.length(); i++) {
           foot_origin_offset[i](0) = i_stp.foot_origin_offset[i][0];
           foot_origin_offset[i](1) = i_stp.foot_origin_offset[i][1];
@@ -2945,16 +3010,16 @@ void Stabilizer::calcTorque (const hrp::Matrix33& rot)
   //   }
   //   std::cerr << ")" << std::endl;
   // }
-  hrp::dmatrix contact_mat, contact_mat_inv;
-  std::vector<hrp::Vector3> contact_p;
-  for (size_t j = 0; j < 2; j++) contact_p.push_back(m_robot->sensor<hrp::ForceSensor>(stikp[j].sensor_name)->link->p);
-  calcContactMatrix(contact_mat, contact_p);
-  hrp::calcSRInverse(contact_mat, contact_mat_inv, 0.0);
-  hrp::dvector root_ft(6);
-  for (size_t j = 0; j < 3; j++) root_ft(j) = root_f(j);
-  for (size_t j = 0; j < 3; j++) root_ft(j+3) = root_t(j);
-  hrp::dvector contact_ft(2*6);
-  contact_ft = contact_mat_inv * root_ft;
+  // hrp::dmatrix contact_mat, contact_mat_inv;
+  // std::vector<hrp::Vector3> contact_p;
+  // for (size_t j = 0; j < 2; j++) contact_p.push_back(m_robot->sensor<hrp::ForceSensor>(stikp[j].sensor_name)->link->p);
+  // calcContactMatrix(contact_mat, contact_p);
+  // hrp::calcSRInverse(contact_mat, contact_mat_inv, 0.0);
+  // hrp::dvector root_ft(6);
+  // for (size_t j = 0; j < 3; j++) root_ft(j) = root_f(j);
+  // for (size_t j = 0; j < 3; j++) root_ft(j+3) = root_t(j);
+  // hrp::dvector contact_ft(2*6);
+  // contact_ft = contact_mat_inv * root_ft;
   // if (loop%200==0) {
   //   std::cerr << ":mass " << m_robot->totalMass() << std::endl;
   //   // std::cerr << ":ftv "; rats::print_vector(std::cerr, ftv);

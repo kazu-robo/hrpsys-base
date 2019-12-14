@@ -300,7 +300,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     fix_leg_coords = coordinates();
 
     // load virtual force sensors
-    readVirtualForceSensorParamFromProperties(m_vfs, m_robot, prop["virtual_force_sensor"], std::string(m_profile.instance_name));
+    readVirtualForceSensorParamFromProperties(m_vfs, m_robot, prop["virtual_force_sensor2"], std::string(m_profile.instance_name));
     // ref force port
     unsigned int npforce = m_robot->numSensors(hrp::Sensor::FORCE);
     unsigned int nvforce = m_vfs.size();

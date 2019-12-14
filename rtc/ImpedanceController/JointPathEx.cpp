@@ -618,18 +618,18 @@ void hrp::readVirtualForceSensorParamFromProperties (std::map<std::string, hrp::
                                                      const std::string& instance_name)
 {
     coil::vstring virtual_force_sensor = coil::split(prop_string, ",");
-    unsigned int nvforce = virtual_force_sensor.size()/10;
+    unsigned int nvforce = virtual_force_sensor.size()/15;//10->15
     for (unsigned int i=0; i<nvforce; i++){
-        std::string name = virtual_force_sensor[i*10+0];
+        std::string name = virtual_force_sensor[i*15+0];//10->15
         hrp::dvector tr(7);
         for (int j = 0; j < 7; j++ ) {
-          coil::stringTo(tr[j], virtual_force_sensor[i*10+3+j].c_str());
+            coil::stringTo(tr[j], virtual_force_sensor[i*15+2+j].c_str());//10->15,3->2
         }
         vfs.insert(std::pair<std::string, VirtualForceSensorParam>(name, VirtualForceSensorParam()));
         VirtualForceSensorParam& p = vfs[name];
         p.localPos = hrp::Vector3(tr[0], tr[1], tr[2]);
         p.localR = Eigen::AngleAxis<double>(tr[6], hrp::Vector3(tr[3],tr[4],tr[5])).toRotationMatrix(); // rotation in VRML is represented by axis + angle
-        p.link = m_robot->link(virtual_force_sensor[i*10+2]);
+        p.link = m_robot->link(virtual_force_sensor[i*15+1]);//10->15, 2->1
         p.id = i;
         std::cerr << "[" << instance_name << "] virtual force sensor" << std::endl;
         std::cerr << "[" << instance_name << "]   name = " << name << ", parent = " << p.link->name << ", id = " << p.id << std::endl;
