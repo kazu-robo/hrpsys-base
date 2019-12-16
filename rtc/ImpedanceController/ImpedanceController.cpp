@@ -125,7 +125,8 @@ RTC::ReturnCode_t ImpedanceController::onInitialize()
         fsensor_names.push_back(m_robot->sensor(hrp::Sensor::FORCE, i)->name);
     }
     // load virtual force sensors
-    readVirtualForceSensorParamFromProperties(m_vfs, m_robot, prop["virtual_force_sensor"], std::string(m_profile.instance_name));
+    // readVirtualForceSensorParamFromProperties(m_vfs, m_robot, prop["virtual_force_sensor"], std::string(m_profile.instance_name));
+    readVirtualForceSensorParamFromProperties(m_vfs, m_robot, prop["virtual_force_sensor2"], std::string(m_profile.instance_name)); // todo
     unsigned int nvforce = m_vfs.size();
     for (unsigned int i=0; i<nvforce; i++){
         for ( std::map<std::string, hrp::VirtualForceSensorParam>::iterator it = m_vfs.begin(); it != m_vfs.end(); it++ ) {
@@ -200,7 +201,7 @@ RTC::ReturnCode_t ImpedanceController::onInitialize()
     std::cerr << "[" << m_profile.instance_name << "] Add impedance params" << std::endl;
     for (unsigned int i=0; i<m_forceIn.size(); i++){
         std::string sensor_name = m_forceIn[i]->name();
-        hrp::ForceSensor* sensor = m_robot->sensor<hrp::ForceSensor>(sensor_name);
+        hrp::ForceSensor* sensor = m_robot->sensor<hrp::ForceSensor>(sensor_name); // todo end-effector ok?
         std::string sensor_link_name;
         if ( sensor ) {
             // real force sensor
@@ -518,7 +519,7 @@ void ImpedanceController::calcForceMoment ()
       for (unsigned int i=0; i<m_forceIn.size(); i++){
         if ( m_force[i].data.length()==6 ) {
           std::string sensor_name = m_forceIn[i]->name();
-          hrp::ForceSensor* sensor = m_robot->sensor<hrp::ForceSensor>(sensor_name);
+          hrp::ForceSensor* sensor = m_robot->sensor<hrp::ForceSensor>(sensor_name); // todo
           hrp::Vector3 data_p(m_force[i].data[0], m_force[i].data[1], m_force[i].data[2]);
           hrp::Vector3 data_r(m_force[i].data[3], m_force[i].data[4], m_force[i].data[5]);
           hrp::Vector3 ref_data_p(m_ref_force[i].data[0], m_ref_force[i].data[1], m_ref_force[i].data[2]);

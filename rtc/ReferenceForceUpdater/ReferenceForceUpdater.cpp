@@ -135,7 +135,8 @@ RTC::ReturnCode_t ReferenceForceUpdater::onInitialize()
     fsensor_names.push_back(m_robot->sensor(hrp::Sensor::FORCE, i)->name);
   }
   // load virtual force sensors
-  readVirtualForceSensorParamFromProperties(m_vfs, m_robot, prop["virtual_force_sensor"], std::string(m_profile.instance_name));
+  // readVirtualForceSensorParamFromProperties(m_vfs, m_robot, prop["virtual_force_sensor"], std::string(m_profile.instance_name));
+  readVirtualForceSensorParamFromProperties(m_vfs, m_robot, prop["virtual_force_sensor2"], std::string(m_profile.instance_name)); // todo 
   unsigned int nvforce = m_vfs.size();
   for (unsigned int i=0; i<nvforce; i++){
     for ( std::map<std::string, hrp::VirtualForceSensorParam>::iterator it = m_vfs.begin(); it != m_vfs.end(); it++ ) {
@@ -196,14 +197,28 @@ RTC::ReturnCode_t ReferenceForceUpdater::onInitialize()
       {
           bool is_ee_exists = false;
           for (size_t j = 0; j < nforce; j++) {
-              hrp::Sensor* sensor = m_robot->sensor(hrp::Sensor::FORCE, j);
+              hrp::Sensor* sensor = m_robot->sensor(hrp::Sensor::FORCE, j); // todo;; stikp is not defuned;;defun stikp??
               hrp::Link* alink = m_robot->link(ee_target);
               while (alink != NULL && alink->name != ee_base && !is_ee_exists) {
-                  if ( alink->name == sensor->link->name ) {
-                      is_ee_exists = true;
-                      eet.sensor_name = sensor->name;
-                  }
-                  alink = alink->parent;
+                      // if ( sensor ) { // real force sensor
+                      //     if ( alink->name == sensor->link->name ) {
+                      //         is_ee_exists = true;
+                      //         eet.sensor_name = sensor->name;
+                      //     }
+                      // } else if ( m_vfs.find(stikp[j].sensor_name) !=  m_vfs.end()) { // virtual force sensor
+                      //     if ( alink->name == m_vfs[stikp[j].sensor_name].link->name ) {
+                      //         is_ee_exists = true;
+                      //         eet.sensor_name = m_vfs[stikp[j].sensor_name].link->name;
+                      //     }
+                      // } else {
+                      //     continue;
+                      // }
+                      
+                      if ( alink->name == sensor->link->name ) {
+                          is_ee_exists = true;
+                          eet.sensor_name = sensor->name;
+                      }
+                      alink = alink->parent;
               }
           }
       }

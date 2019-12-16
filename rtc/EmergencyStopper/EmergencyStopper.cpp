@@ -146,10 +146,13 @@ RTC::ReturnCode_t EmergencyStopper::onInitialize()
     }
     unsigned int npforce = fsensor_names.size();
     //   find names for virtual force sensors
-    coil::vstring virtual_force_sensor = coil::split(prop["virtual_force_sensor"], ",");
-    unsigned int nvforce = virtual_force_sensor.size()/10;
+    // coil::vstring virtual_force_sensor = coil::split(prop["virtual_force_sensor"], ",");
+    coil::vstring virtual_force_sensor = coil::split(prop["virtual_force_sensor2"], ","); // todo
+    // unsigned int nvforce = virtual_force_sensor.size()/10;;
+    unsigned int nvforce = virtual_force_sensor.size()/15;
     for (unsigned int i=0; i<nvforce; i++){
-        fsensor_names.push_back(virtual_force_sensor[i*10+0]);
+        // fsensor_names.push_back(virtual_force_sensor[i*10+0]);
+        fsensor_names.push_back(virtual_force_sensor[i*15+0]);
     }
     //   add ports for all force sensors
     unsigned int nforce  = npforce + nvforce;
