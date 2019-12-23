@@ -177,8 +177,8 @@ RTC::ReturnCode_t ReferenceForceUpdater::onInitialize()
   coil::vstring end_effectors_str = coil::split(prop["end_effectors"], ",");
   if (end_effectors_str.size() > 0) {
     size_t prop_num = 10;
-    // size_t num = end_effectors_str.size()/prop_num;
-    size_t num = 4;
+    size_t num = end_effectors_str.size()/prop_num;
+    // size_t num = 4;
     for (size_t i = 0; i < num; i++) {
       std::string ee_name, ee_target, ee_base;
       coil::stringTo(ee_name, end_effectors_str[i*prop_num].c_str());

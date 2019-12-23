@@ -376,6 +376,7 @@ class HrpsysConfigurator(object):
         if StrictVersion(self.seq_version) >= StrictVersion('315.2.0'):
             connectPorts(self.sh.port("zmpOut"), self.seq.port("zmpRefInit"))
         for sen in self.getForceSensorNames():
+            print sen
             connectPorts(self.seq.port(sen + "Ref"),
                          self.sh.port(sen + "In"))
 
@@ -498,9 +499,9 @@ class HrpsysConfigurator(object):
             if self.ic:
                 for vfp in filter(lambda x: str.find(x, 'v') >= 0 and
                                   str.find(x, 'sensor') >= 0, self.vs.ports.keys()):
-                    connectPorts(self.vs.port(vfp), self.ic.port(vfp))
-            if self.st:
-                for vfp in filter(lambda x: str.find(x, 'estimation') >= 0, self.vs.ports.keys()):
+                    # connectPorts(self.vs.port(vfp), self.ic.port(vfp))
+            # if self.st:
+            #     for vfp in filter(lambda x: str.find(x, 'estimation') >= 0, self.vs.ports.keys()):
                     connectPorts(self.vs.port(vfp), self.st.port(vfp))
         # connection for co
         if self.co:
@@ -591,8 +592,11 @@ class HrpsysConfigurator(object):
         '''
         rtcList = self.getRTCInstanceList()
         rtm.serializeComponents(rtcList)
+        print [rtc.name() for rtc in rtcList]
         for r in rtcList:
+            print r.name()
             r.start()
+            print r.name()
 
     def deactivateComps(self):
         '''!@brief
@@ -758,7 +762,7 @@ class HrpsysConfigurator(object):
             ['kf', "KalmanFilter"],
             ['vs', "VirtualForceSensor"],
             ['rmfo', "RemoveForceSensorLinkOffset"],
-            ['octd', "ObjectContactTurnaroundDetector"],
+            # ['octd', "ObjectContactTurnaroundDetector"],
             # ['es', "EmergencyStopper"],
             # ['rfu', "ReferenceForceUpdater"],
             # ['ic', "ImpedanceController"],
@@ -887,7 +891,13 @@ class HrpsysConfigurator(object):
         if self.kf != None:
             self.connectLoggerPort(self.kf, 'rpy')
         if self.vs != None:
-            self.connectLoggerPort(self.vs, 'off_hipestimation')
+            # self.connectLoggerPort(self.vs, 'off_hipestimation')
+            for vfp in filter(lambda x: str.find(x, 'v') >= 0 and
+                              str.find(x, 'sensor') >= 0 and
+                              str.find(x, 'off_') < 0, self.vs.ports.keys()):
+                self.connectLoggerPort(self.vs, vfp)
+                self.connectLoggerPort(self.vs, "off_" + vfp)
+                self.connectLoggerPort(self.sh, vfp + "Out")
         if self.sh != None:
             self.connectLoggerPort(self.sh, 'qOut')
             self.connectLoggerPort(self.sh, 'tqOut')

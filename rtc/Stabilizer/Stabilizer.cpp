@@ -664,7 +664,7 @@ RTC::ReturnCode_t Stabilizer::onExecute(RTC::UniqueId ec_id)
     getCurrentParameters();
     getTargetParameters();
     getActualParameters();
-    calcStateForEmergencySignal();
+    // calcStateForEmergencySignal();
     switch (control_mode) {
     case MODE_IDLE:
       break;
@@ -1349,6 +1349,7 @@ void Stabilizer::getTargetParameters ()
 
 bool Stabilizer::calcZMP(hrp::Vector3& ret_zmp, const double zmp_z)
 {
+  if(DEBUGP) std::cerr << "[" << m_profile.instance_name << "] calcZMPstart()" << std::endl;
   double tmpzmpx = 0;
   double tmpzmpy = 0;
   double tmpfz = 0, tmpfz2 = 0.0;
@@ -1358,19 +1359,24 @@ bool Stabilizer::calcZMP(hrp::Vector3& ret_zmp, const double zmp_z)
     // hrp::Vector3 fsp = sensor->link->p + sensor->link->R * sensor->localPos;
     hrp::Vector3 fsp;
     hrp::Matrix33 tmpR;
+    // if(DEBUGP) std::cerr << "[" << m_profile.instance_name << "] calcZMPbeforeIF()" << std::endl;
     // rats::rotm3times(tmpR, sensor->link->R, sensor->localR);
     if ( sensor ) { // real force sensor
         fsp = sensor->link->p + sensor->link->R * sensor->localPos;
         rats::rotm3times(tmpR, sensor->link->R, sensor->localR);
+        // if(DEBUGP) std::cerr << "[" << m_profile.instance_name << "] calcZMPrealforce()" << std::endl;
     } else if ( m_vfs.find(stikp[i].sensor_name) !=  m_vfs.end()) { // virtual force sensor
         fsp = m_robot->link(m_vfs[stikp[i].sensor_name].link->name)->p + m_robot->link(m_vfs[stikp[i].sensor_name].link->name)->R * m_vfs[stikp[i].sensor_name].localPos;
         rats::rotm3times(tmpR, m_robot->link(m_vfs[stikp[i].sensor_name].link->name)->R, m_vfs[stikp[i].sensor_name].localR);
+        // if(DEBUGP) std::cerr << "[" << m_profile.instance_name << "] calcZMPvirtual()" << std::endl;
     } else {
         continue;
     }
-
+    // if(DEBUGP) std::cerr << "[" << m_profile.instance_name << "] calcZMPfinishIF()" << std::endl;
     hrp::Vector3 nf = tmpR * hrp::Vector3(m_wrenches[i].data[0], m_wrenches[i].data[1], m_wrenches[i].data[2]);
+    if(DEBUGP) std::cerr << "[" << m_profile.instance_name << "]" << "m_wrenches[" << i << "]" << "nf =" << nf << std::endl;
     hrp::Vector3 nm = tmpR * hrp::Vector3(m_wrenches[i].data[3], m_wrenches[i].data[4], m_wrenches[i].data[5]);
+    if(DEBUGP) std::cerr << "[" << m_profile.instance_name << "]" << "m_wrenches[" << i << "]" << "nm =" << nm << std::endl;
     tmpzmpx += nf(2) * fsp(0) - (fsp(2) - zmp_z) * nf(0) - nm(1);
     tmpzmpy += nf(2) * fsp(1) - (fsp(2) - zmp_z) * nf(1) + nm(0);
     tmpfz += nf(2);
@@ -1378,8 +1384,12 @@ bool Stabilizer::calcZMP(hrp::Vector3& ret_zmp, const double zmp_z)
     hrp::Link* target = m_robot->link(stikp[i].target_name);
     hrp::Matrix33 eeR = target->R * stikp[i].localR;
     hrp::Vector3 ee_fsp = eeR.transpose() * (fsp - (target->p + target->R * stikp[i].localp)); // ee-local force sensor pos
+    prev_act_force_z[i] = 0.85 * prev_act_force_z[i] + 0.15 * nf(2); // filter, cut off 5[Hz]
+    tmpfz2 += prev_act_force_z[i];                                   // changed line
     nf = eeR.transpose() * nf;
     nm = eeR.transpose() * nm;
+    if(DEBUGP) std::cerr << "[" << m_profile.instance_name << "]" << "m_wrenches[" << i << "]" << "eeR.transpose*nf =" << nf << std::endl;
+    if(DEBUGP) std::cerr << "[" << m_profile.instance_name << "]" << "m_wrenches[" << i << "]" << "eeR.transpose*nm =" << nm << std::endl;
     // ee-local total moment and total force at ee position
     double tmpcopmy = nf(2) * ee_fsp(0) - nf(0) * ee_fsp(2) - nm(1);
     double tmpcopmx = nf(2) * ee_fsp(1) - nf(1) * ee_fsp(2) + nm(0);
@@ -1387,14 +1397,18 @@ bool Stabilizer::calcZMP(hrp::Vector3& ret_zmp, const double zmp_z)
     m_COPInfo.data[i*3] = tmpcopmx;
     m_COPInfo.data[i*3+1] = tmpcopmy;
     m_COPInfo.data[i*3+2] = tmpcopfz;
-    prev_act_force_z[i] = 0.85 * prev_act_force_z[i] + 0.15 * nf(2); // filter, cut off 5[Hz]
-    tmpfz2 += prev_act_force_z[i];
+    // prev_act_force_z[i] = 0.85 * prev_act_force_z[i] + 0.15 * nf(2); // filter, cut off 5[Hz]
+    // tmpfz2 += prev_act_force_z[i];
   }
+  if(DEBUGP) std::cerr << "[" << m_profile.instance_name << "] calcZMPfinishFOR()" << std::endl;
+  if(DEBUGP) std::cerr << "[" << m_profile.instance_name << "]" << " tmpfz2 = " << tmpfz2 << std::endl;
+  if(DEBUGP) std::cerr << "[" << m_profile.instance_name << "]" << "contact_decision_threshold =" << contact_decision_threshold << std::endl;
   if (tmpfz2 < contact_decision_threshold) {
     ret_zmp = act_zmp;
     return false; // in the air
   } else {
     ret_zmp = hrp::Vector3(tmpzmpx / tmpfz, tmpzmpy / tmpfz, zmp_z);
+    if(DEBUGP) std::cerr << "[" << m_profile.instance_name << "]" << " ret_zmp = " << ret_zmp << std::endl;
     return true; // on ground
   }
 };
@@ -1456,12 +1470,14 @@ void Stabilizer::calcStateForEmergencySignal()
     }
   }
   // tilt Check
+  if(DEBUGP) std::cerr << "[" << m_profile.instance_name << "] tiltCHECKstart()" << std::endl;
   hrp::Vector3 fall_direction = hrp::Vector3::Zero();
   bool is_falling = false, will_fall = false;
   {
       double total_force = 0.0;
       for (size_t i = 0; i < stikp.size(); i++) {
           if (is_zmp_calc_enable[i]) {
+              if(DEBUGP) std::cerr << "[" << m_profile.instance_name << "] ifIS_ZMP_CALC_ENABLE()" << std::endl;
               if (is_walking) {
                   if (projected_normal.at(i).norm() > sin(tilt_margin[0])) {
                       will_fall = true;
@@ -1476,6 +1492,7 @@ void Stabilizer::calcStateForEmergencySignal()
                       m_will_fall_counter[i] = 0;
                   }
               }
+              if(DEBUGP) std::cerr << "[" << m_profile.instance_name << "] afterIS_WALINKG()" << std::endl;
               fall_direction += projected_normal.at(i) * act_force.at(i).norm();
               total_force += act_force.at(i).norm();
           }
@@ -1495,6 +1512,7 @@ void Stabilizer::calcStateForEmergencySignal()
       } else {
           m_is_falling_counter = 0;
       }
+      if(DEBUGP) std::cerr << "[" << m_profile.instance_name << "] tiltCHECKfinish()" << std::endl;
   }
   // Total check for emergency signal
   switch (emergency_check_mode) {
@@ -1521,6 +1539,7 @@ void Stabilizer::calcStateForEmergencySignal()
   rel_ee_pos.clear();
   rel_ee_rot.clear();
   rel_ee_name.clear();
+  if(DEBUGP) std::cerr << "[" << m_profile.instance_name << "] tiltcheckPEFECTLYfinish()" << std::endl;
 };
 
 void Stabilizer::moveBasePosRotForBodyRPYControl ()
