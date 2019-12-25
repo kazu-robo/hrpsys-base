@@ -983,7 +983,7 @@ public:
                                                    const std::vector<hrp::dvector6>& ee_forcemoment_distribution_weight,
                                                    const double total_fz, const double dt, const bool printp = true, const std::string& print_str = "")
     {
-#define FORCE_MOMENT_DIFF_CONTROL
+// #define FORCE_MOMENT_DIFF_CONTROL
 
         size_t ee_num = ee_name.size();
         std::vector<double> alpha_vector(ee_num), fz_alpha_vector(ee_num);
