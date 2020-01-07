@@ -271,49 +271,51 @@ RTC::ReturnCode_t VirtualForceSensor::onExecute(RTC::UniqueId ec_id)
     // robotの状態の更新
     hrp::dvector qCurrent = hrp::dvector::Zero(m_robot->numJoints());
     for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
-      qCurrent[i] = m_qCurrent.data[i];
+        qCurrent[i]/*現在の関節角度 n*/ = m_qCurrent.data[i];//現在の関節角度を取得
     }
     qCurrent = qCurrentFilter->passFilter(qCurrent);
     for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
-      m_robot->joint(i)->q = qCurrent[i];
+        m_robot->joint(i)->q = qCurrent[i];//m_robotに現在の関節角度を代入
     }
     hrp::dvector dqCurrent(m_robot->numJoints());
     for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
         dqCurrent[i] = 0.0;//(qCurrent[i] - qprev[i])/dt; TODO
+        //現在の関節角度を微分 n (関節のみ)
     }
     qprev = qCurrent;
-    dqCurrent = dqCurrentFilter->passFilter(dqCurrent);
+    dqCurrent = dqCurrentFilter->passFilter(dqCurrent);//微分は振動するのでローパス
     for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
-      m_robot->joint(i)->dq = dqCurrent[i];
+        m_robot->joint(i)->dq = dqCurrent[i];//m_robotに現在の関節速度を代入
     }
-    hrp::dvector ddqCurrent = (dqCurrent - dqprev) / m_dt;
+    hrp::dvector ddqCurrent = (dqCurrent - dqprev) / m_dt;//関節速度を微分
     dqprev = dqCurrent;
-    ddqCurrent = ddqCurrentFilter->passFilter(ddqCurrent);
+    ddqCurrent = ddqCurrentFilter->passFilter(ddqCurrent);//加速度は振動するのでローパス
     for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
-      m_robot->joint(i)->ddq = ddqCurrent[i];
+        m_robot->joint(i)->ddq = ddqCurrent[i];//m_robotに関節加速度を代入
     }
-    hrp::Matrix33 baseR = hrp::rotFromRpy(m_baseRpy.data.r, m_baseRpy.data.p, m_baseRpy.data.y);
+    hrp::Matrix33 baseR = hrp::rotFromRpy(m_baseRpy.data.r, m_baseRpy.data.p, m_baseRpy.data.y);//現在のbaselinkのrpyを取得
     //hrp::Vector3 basew = rats::matrix_log( baseR * baseRprev.transpose() ) / m_dt; TODO
-    hrp::Vector3 basew = hrp::Vector3::Zero();
-    basew = basewFilter->passFilter(basew);
-    hrp::Vector3 basedw = (basew - basewprev) /m_dt;
-    basedw = basedwFilter->passFilter(basedw);
+    // 姿勢を微分することで角速度を得る
+    hrp::Vector3 basew = hrp::Vector3::Zero();//とりあえず0を入れている
+    basew = basewFilter->passFilter(basew);//角速度は振動するのでローパス
+    hrp::Vector3 basedw = (basew - basewprev) /m_dt;//角速度を得る
+    basedw = basedwFilter->passFilter(basedw);//角速度をローパス
     baseRprev = baseR;
     basewprev = basew;
-    m_robot->rootLink()->R = baseR;
-    m_robot->rootLink()->w = basew;
-    m_robot->rootLink()->dw = basedw;
-    
-    m_robot->calcForwardKinematics();
+    m_robot->rootLink()->R = baseR;//rpyをm_robotへ
+    m_robot->rootLink()->w = basew;//角速度をm_robotへ
+    m_robot->rootLink()->dw = basedw;//各加速度をm_robotへ
 
-    m_robot->rootLink()->p = hrp::Vector3::Zero();
-    hrp::Vector3 basev = hrp::Vector3::Zero();//TODO
-    m_robot->rootLink()->v = basev;
-    hrp::Vector3 basedv = hrp::Vector3::Zero();//TODO
-    m_robot->rootLink()->dv = basedv;
-    m_robot->calcForwardKinematics(true,true);
+    m_robot->rootLink()->p = hrp::Vector3::Zero(); //baseの位置を取得しm_robotへ とりあえずゼロを入れている. どうやって取得するか不明?
+    hrp::Vector3 basev = hrp::Vector3::Zero();//TODO baseの速度を取得 0を入れている
+    m_robot->rootLink()->v = basev;//速度をm_robotへ
+    hrp::Vector3 basedv = hrp::Vector3::Zero();//TODO baseの加速度を取得 0を入れている
+    m_robot->rootLink()->dv = basedv;//加速度をm_robotへ
 
-    for(size_t i =0 ; i< m_robot->numLinks();i++){//voはFKで自動で計算されない
+    //m_robot->calcForwardKinematics();//FKを解く 各リンクの空間位置を得る
+    m_robot->calcForwardKinematics(true/*速度のFKも解く*/,true/*加速度のFKも解く*/);//FKを解く 各リンクの空間位置,空間速度、角速度を得る
+
+    for(size_t i =0 ; i< m_robot->numLinks();i++){//voはFKで自動で計算されない, openhrp3のcalcInverseDynamics関数のバグ 
         m_robot->link(i)->vo = m_robot->link(i)->v - m_robot->link(i)->w.cross(m_robot->link(i)->p);
     }
     hrp::Vector3 g(0, 0, 9.80665);
@@ -324,7 +326,7 @@ RTC::ReturnCode_t VirtualForceSensor::onExecute(RTC::UniqueId ec_id)
     //反力無しの場合に要するトルク
     hrp::Vector3 base_f;/*actworld系*/
     hrp::Vector3 base_t;/*actworld系,原点周り*/
-    m_robot->calcInverseDynamics(m_robot->rootLink(), base_f, base_t);
+    m_robot->calcInverseDynamics(m_robot->rootLink(), base_f, base_t);//逆動力学を解く /tau_0が求まる
     hrp::dvector T0 = hrp::dvector::Zero(6+m_robot->numJoints());
     T0.block<3,1>(0,0) = base_f;
     T0.block<3,1>(3,0) = base_t;
@@ -342,11 +344,11 @@ RTC::ReturnCode_t VirtualForceSensor::onExecute(RTC::UniqueId ec_id)
     hrp::dvector T = hrp::dvector::Zero(6+m_robot->numJoints());
     hrp::dvector tau = hrp::dvector::Zero(m_robot->numJoints());
     for (size_t i = 0; i < m_robot->numJoints() ; i++){
-        tau[i] = m_tauIn.data[i];
+        tau[i] = m_tauIn.data[i];//トルクを取得
     }
-    tau = tauFilter->passFilter(tau);
+    tau = tauFilter->passFilter(tau);//トルクをローパスする
     T.block(6,0,m_robot->numJoints(),1) = tau;
-    Tvirtual -= T;
+    Tvirtual -= T;//トルクを引く Tvirtual = J^T w になっている
 
     if(VS_DEBUG){
         std::cout << "tau" <<std::endl;
@@ -355,6 +357,7 @@ RTC::ReturnCode_t VirtualForceSensor::onExecute(RTC::UniqueId ec_id)
 
     //各反力に相当するトルク
     for (size_t i = 0; i < jpe_v.size() ; i++){
+        //センサ位置のヤコビアンJを計算
         hrp::Sensor* sensor = m_robot->sensor(hrp::Sensor::FORCE, i);
         hrp::dmatrix JJ;
         jpe_v[i]->calcJacobian(JJ,sensor->localPos);
@@ -366,22 +369,24 @@ RTC::ReturnCode_t VirtualForceSensor::onExecute(RTC::UniqueId ec_id)
             J.block<6,1>(0,6+jpe_v[i]->joint(j)->jointId) = JJ.block<6,1>(0,j);
         }
 
+        //実際の反力を取得
         hrp::dvector6 wrench_filtered;
-        wrench_filtered << m_wrenches[i].data[0],m_wrenches[i].data[1],m_wrenches[i].data[2],m_wrenches[i].data[3],m_wrenches[i].data[4],m_wrenches[i].data[5];
-        wrench_filtered = wrenchFilter[i]->passFilter(wrench_filtered);
+        wrench_filtered << m_wrenches[i].data[0],m_wrenches[i].data[1],m_wrenches[i].data[2],m_wrenches[i].data[3],m_wrenches[i].data[4],m_wrenches[i].data[5];//実際の反力を取得
+        wrench_filtered = wrenchFilter[i]->passFilter(wrench_filtered);//反力をローパス
         hrp::dvector6 wrench;
         wrench.block<3,1>(0,0) = (sensor->link->R * sensor->localR) * wrench_filtered.head<3>();
         wrench.block<3,1>(3,0) = (sensor->link->R * sensor->localR) * wrench_filtered.tail<3>();
 
-        Tvirtual -= J.transpose() * wrench;
+        Tvirtual -= J.transpose() * wrench;//このセンサのJ^T wを引く
     }
+    //トルクを引く Tvirtual = J^T w^e になっている
 
     if(VS_DEBUG){
         std::cout << "Tvirtual" <<std::endl;
         std::cout << Tvirtual <<std::endl;
     }
 
-    //外力のオフセット除去
+    //外力のオフセット除去 平岡のrobosymのoffset項を引いている
     hrp::Vector3 CM/*actworld系*/ = m_robot->calcCM();
     hrp::Vector3 basecoords_p;/*actworld系*/
     hrp::Matrix33 basecoords_R;/*actworld系,Z軸鉛直*/
@@ -414,7 +419,7 @@ RTC::ReturnCode_t VirtualForceSensor::onExecute(RTC::UniqueId ec_id)
         std::cout << Tvirtual <<std::endl;
     }
 
-
+    //推定したい(enableされている)センサのみを選ぶ
     std::vector<boost::shared_ptr<VirtualForceSensorParam> > enable_sensors;
     std::map<std::string, boost::shared_ptr<VirtualForceSensorParam> >::iterator it = m_sensors.begin();
     for (size_t i = 0 ; i < m_sensors.size(); i++){
@@ -440,6 +445,7 @@ RTC::ReturnCode_t VirtualForceSensor::onExecute(RTC::UniqueId ec_id)
         hrp::dvector lb;
         hrp::dvector ub;
 
+        //推定したいセンサのJを計算
         hrp::dmatrix J = hrp::dmatrix::Zero(6 * enable_sensors.size(),6+m_robot->numJoints());
         {
             for (size_t i = 0 ; i < enable_sensors.size(); i++){
@@ -455,6 +461,8 @@ RTC::ReturnCode_t VirtualForceSensor::onExecute(RTC::UniqueId ec_id)
                 }
             }
         }
+
+        //重みWを計算
         hrp::dmatrix W = hrp::dmatrix::Zero(6+m_robot->numJoints(),6+m_robot->numJoints());
         for(size_t i=0; i < 3; i++){
             W(i,i) = root_force_weight;
@@ -643,6 +651,7 @@ RTC::ReturnCode_t VirtualForceSensor::onExecute(RTC::UniqueId ec_id)
         qp_solved=true;
     }
 
+    //virtual_wrench (6*nのベクトル)に推定結果が入る
     if(qp_solved){
         if(VS_DEBUG){
             std::cerr << "virtual_wrench" <<std::endl;
@@ -666,9 +675,9 @@ RTC::ReturnCode_t VirtualForceSensor::onExecute(RTC::UniqueId ec_id)
                 m_force[i].data[j+3] = (*it).second->sensor_moment[j];
             }
             m_force[i].tm = tm; // put timestamp
-            m_forceOut[i]->write();
+            m_forceOut[i]->write();//hipestimationトピックに流す
             
-            //offset
+            //offset //センサごとのオフセット除去 あまり役に立たない?
             if((*it).second->max_offset_calib_counter > 0){// while calibrating
                 (*it).second->forceOffset_sum/*sensor系*/ += (*it).second->sensor_force/*sensor系*/;
                 (*it).second->momentOffset_sum/*sensor系,sensor周り*/ += (*it).second->sensor_moment/*sensor系,sensor周り*/;
@@ -694,7 +703,7 @@ RTC::ReturnCode_t VirtualForceSensor::onExecute(RTC::UniqueId ec_id)
                 m_offforce[i].data[j+3] = (*it).second->off_sensor_moment[j];
             }
             m_offforce[i].tm = tm; // put timestamp
-            m_offforceOut[i]->write();
+            m_offforceOut[i]->write();//off_hipestimationトピックに流す
             it++;
         }
     }
@@ -741,22 +750,22 @@ RTC::ReturnCode_t VirtualForceSensor::onRateChanged(RTC::UniqueId ec_id)
 void VirtualForceSensor::setParameter(const OpenHRP::VirtualForceSensorService::vsParam& i_stp)
 {
     root_force_weight = i_stp.root_force_weight;
-    std::cerr << "[" << m_profile.instance_name << "] root_force_weight " << root_force_weight << std::endl;
+    std::cerr << "[" << m_profile.instance_name << "] root_force_weight " << root_force_weight << std::endl;//QP解くときの0-2成分の重み 10000.0
     root_moment_weight = i_stp.root_moment_weight;
-    std::cerr << "[" << m_profile.instance_name << "] root_moment_weight " << root_moment_weight << std::endl;
+    std::cerr << "[" << m_profile.instance_name << "] root_moment_weight " << root_moment_weight << std::endl;//QP解くときの3-5成分の重み 100.0
     joint_torque_weight = i_stp.joint_torque_weight;
-    std::cerr << "[" << m_profile.instance_name << "] joint_torque_weight " << joint_torque_weight << std::endl;
+    std::cerr << "[" << m_profile.instance_name << "] joint_torque_weight " << joint_torque_weight << std::endl;//QP解くときの6-6+n成分の重み 1.0
     weight = i_stp.weight;
-    std::cerr << "[" << m_profile.instance_name << "] weight " << weight << std::endl;
+    std::cerr << "[" << m_profile.instance_name << "] weight " << weight << std::endl;//QP解くときの正則か重み 1e-6
 
     qCurrentFilter->setCutOffFreq(i_stp.q_cutoff_freq);
-    std::cerr << "[" << m_profile.instance_name << "]  q_cutoff_freq = " << qCurrentFilter->getCutOffFreq() << std::endl;
+    std::cerr << "[" << m_profile.instance_name << "]  q_cutoff_freq = " << qCurrentFilter->getCutOffFreq() << std::endl;//関節角度のカットオフ周波数 25hz
 
     tauFilter->setCutOffFreq(i_stp.tau_cutoff_freq);
-    std::cerr << "[" << m_profile.instance_name << "]  tau_cutoff_freq = " << tauFilter->getCutOffFreq() << std::endl;
+    std::cerr << "[" << m_profile.instance_name << "]  tau_cutoff_freq = " << tauFilter->getCutOffFreq() << std::endl;//関節トルクのカットオフ周波数 1hz
 
     for(size_t i=0; i < wrenchFilter.size() ; i++){
-        wrenchFilter[i]->setCutOffFreq(i_stp.wrench_cutoff_freq);
+        wrenchFilter[i]->setCutOffFreq(i_stp.wrench_cutoff_freq);//反力のカットオフ周波数 10hz
     }
     std::cerr << "[" << m_profile.instance_name << "]  wrench_cutoff_freq = " << i_stp.wrench_cutoff_freq << std::endl;
 
@@ -767,6 +776,8 @@ void VirtualForceSensor::setParameter(const OpenHRP::VirtualForceSensorService::
         it++;
     }
     std::cerr << "[" << m_profile.instance_name << "]  out_cutoff_freq = " << i_stp.out_cutoff_freq << std::endl;
+
+    //関節速度加速度のカットオフ周波数、ルートリンク速度角速度のカットオフ周波数は、今のところかえられない default 50Hz
 }
 
 void VirtualForceSensor::getParameter(OpenHRP::VirtualForceSensorService::vsParam& i_stp)
