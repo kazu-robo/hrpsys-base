@@ -498,10 +498,12 @@ RTC::ReturnCode_t Stabilizer::onInitialize()
       m_COPInfo.data[i] = 0.0;
   }
   transition_time = 2.0;
-  foot_origin_offset.resize(2);
-  foot_origin_offset[0] = hrp::Vector3::Zero();
-  foot_origin_offset[1] = hrp::Vector3::Zero();
-
+  // foot_origin_offset.resize(2);
+  // foot_origin_offset[0] = hrp::Vector3::Zero();
+  // foot_origin_offset[1] = hrp::Vector3::Zero();
+  foot_origin_offset.resize(stikp.size());
+  for(int i = 0; i < stikp.size(); ++i) foot_origin_offset[i] = hrp::Vector3::Zero();
+  
   //
   act_cogvel_filter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::Vector3> >(new FirstOrderLowPassFilter<hrp::Vector3>(4.0, dt, hrp::Vector3::Zero())); // [Hz]
 
@@ -811,21 +813,27 @@ void Stabilizer::getCurrentParameters ()
 
 void Stabilizer::calcFootOriginCoords (hrp::Vector3& foot_origin_pos, hrp::Matrix33& foot_origin_rot)
 {
-  rats::coordinates leg_c[2], tmpc;
+  // rats::coordinates leg_c[2], tmpc;
+  rats::coordinates leg_c[6], tmpc;// todo 6
   hrp::Vector3 ez = hrp::Vector3::UnitZ();
   hrp::Vector3 ex = hrp::Vector3::UnitX();
   for (size_t i = 0; i < stikp.size(); i++) {
-    if (stikp[i].ee_name.find("leg") == std::string::npos) continue;
-    hrp::Link* target = m_robot->sensor<hrp::ForceSensor>(stikp[i].sensor_name)->link;//todo
+    // if (stikp[i].ee_name.find("leg") == std::string::npos) continue;
+    if (stikp[i].ee_name.find("leg") == std::string::npos
+        && stikp[i].ee_name.find("thigh") == std::string::npos) continue;
+    hrp::Sensor* sensor = m_robot->sensor<hrp::ForceSensor>(stikp[i].sensor_name);
+    // hrp::Link* target = m_robot->sensor<hrp::ForceSensor>(stikp[i].sensor_name)->link;//todo
     // leg_c[i].pos = target->p + target->R * foot_origin_offset[i];
     // hrp::Vector3 xv1(target->R * ex);
     hrp::Vector3 xv1 = hrp::Vector3::Zero();
-    if ( target ) { // real force sensor
+    if ( sensor ) { // real force sensor
+        hrp::Link* target = sensor->link;
         leg_c[i].pos = target->p + target->R * foot_origin_offset[i];
-        xv1 = target->R * ex;
+        xv1 = target->R * stikp[i].localR * ex;
     } else if ( m_vfs.find(stikp[i].sensor_name) !=  m_vfs.end()) { // virtual force sensor
-        leg_c[i].pos = m_robot->link(m_vfs[stikp[i].sensor_name].link->name)->p + m_robot->link(m_vfs[stikp[i].sensor_name].link->name)->R * foot_origin_offset[i];//offset?
-        xv1 = m_robot->link(m_vfs[stikp[i].sensor_name].link->name)->R * ex;
+        hrp::Link* target = m_robot->link(m_vfs[stikp[i].sensor_name].link->name);
+        leg_c[i].pos = target->p + target->R * foot_origin_offset[i];//offset?
+        xv1 = target->R * stikp[i].localR * ex;
     } else {
         continue;
     }
@@ -844,9 +852,20 @@ void Stabilizer::calcFootOriginCoords (hrp::Vector3& foot_origin_pos, hrp::Matri
   } else if (ref_contact_states[contact_states_index_map["rleg"]]) {
     foot_origin_pos = leg_c[contact_states_index_map["rleg"]].pos;
     foot_origin_rot = leg_c[contact_states_index_map["rleg"]].rot;
-  } else {
+  } else if (ref_contact_states[contact_states_index_map["lleg"]]){
     foot_origin_pos = leg_c[contact_states_index_map["lleg"]].pos;
     foot_origin_rot = leg_c[contact_states_index_map["lleg"]].rot;
+  } else if (ref_contact_states[contact_states_index_map["rthigh"]] &&
+             ref_contact_states[contact_states_index_map["lthigh"]]) {
+      rats::mid_coords(tmpc, 0.5, leg_c[4], leg_c[5]);// todo
+      foot_origin_pos = tmpc.pos;
+      foot_origin_rot = tmpc.rot;
+  } else if (ref_contact_states[contact_states_index_map["rthigh"]]) {
+    foot_origin_pos = leg_c[contact_states_index_map["rthigh"]].pos;
+    foot_origin_rot = leg_c[contact_states_index_map["rthigh"]].rot;
+  } else {
+    foot_origin_pos = leg_c[contact_states_index_map["lthigh"]].pos;
+    foot_origin_rot = leg_c[contact_states_index_map["lthigh"]].rot;
   }
 }
 
