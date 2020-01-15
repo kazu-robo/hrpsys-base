@@ -43,6 +43,7 @@ VirtualForceSensor::VirtualForceSensor(RTC::Manager* manager)
     m_tauInIn("tauIn", m_tauIn),
     m_baseRpyIn("baseRpy", m_baseRpy),
     m_VirtualForceSensorServicePort("VirtualForceSensorService"),
+    m_accIn("acc", m_acc),      // changed
     // </rtc-template>
     m_debugLevel(0)
 {
@@ -70,6 +71,7 @@ RTC::ReturnCode_t VirtualForceSensor::onInitialize()
   addInPort("qCurrent", m_qCurrentIn);
   addInPort("tauIn", m_tauInIn);
   addInPort("baseRpy", m_baseRpyIn);
+  addInPort("acc", m_accIn);    // changed
 
   // Set service provider to Ports
   m_VirtualForceSensorServicePort.registerProvider("service0", "VirtualForceSensorService", m_service0);
@@ -258,6 +260,9 @@ RTC::ReturnCode_t VirtualForceSensor::onExecute(RTC::UniqueId ec_id)
   if (m_baseRpyIn.isNew()) {
     m_baseRpyIn.read();
   }
+  if (m_accIn.isNew()) {
+    m_accIn.read();
+  } // changed
   for (size_t i = 0; i < m_wrenchesIn.size(); ++i) {
       if ( m_wrenchesIn[i]->isNew() ) {
           m_wrenchesIn[i]->read();
@@ -279,13 +284,15 @@ RTC::ReturnCode_t VirtualForceSensor::onExecute(RTC::UniqueId ec_id)
     }
     hrp::dvector dqCurrent(m_robot->numJoints());
     for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
-        dqCurrent[i] = 0.0;//(qCurrent[i] - qprev[i])/dt; TODO
+        // dqCurrent[i] = 0.0;//(qCurrent[i] - qprev[i])/m_dt; TODO
+        dqCurrent[i] = (qCurrent[i] - qprev[i])/m_dt; // for dynamic (for ddqCurrent[i])
         //現在の関節角度を微分 n (関節のみ)
     }
     qprev = qCurrent;
     dqCurrent = dqCurrentFilter->passFilter(dqCurrent);//微分は振動するのでローパス
     for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
-        m_robot->joint(i)->dq = dqCurrent[i];//m_robotに現在の関節速度を代入
+        // m_robot->joint(i)->dq = dqCurrent[i];//m_robotに現在の関節速度を代入
+        m_robot->joint(i)->dq = 0.0;//m_robotに現在の関節速度を代入,コリオリ力無視のため０を代入
     }
     hrp::dvector ddqCurrent = (dqCurrent - dqprev) / m_dt;//関節速度を微分
     dqprev = dqCurrent;
@@ -293,23 +300,30 @@ RTC::ReturnCode_t VirtualForceSensor::onExecute(RTC::UniqueId ec_id)
     for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
         m_robot->joint(i)->ddq = ddqCurrent[i];//m_robotに関節加速度を代入
     }
-    hrp::Matrix33 baseR = hrp::rotFromRpy(m_baseRpy.data.r, m_baseRpy.data.p, m_baseRpy.data.y);//現在のbaselinkのrpyを取得
-    //hrp::Vector3 basew = rats::matrix_log( baseR * baseRprev.transpose() ) / m_dt; TODO
+    m_robot->calcForwardKinematics();//FKを解く 各リンクの空間位置を得る（一旦目標姿勢にすることで実際のRを正しく得られる）
+    hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
+    hrp::Matrix33 senR = sen->link->R * sen->localR;//imuのルートリンク相対の回転行列
+    hrp::Matrix33 baseR = hrp::rotFromRpy(m_baseRpy.data.r, m_baseRpy.data.p, m_baseRpy.data.y);//現在のimu->kf->vsのrpyから計算した姿勢の回転行列
+    m_robot->rootLink()->R = baseR * (senR.transpose() * m_robot->rootLink()->R);//m_robotにルートリンク姿勢を代入
+    baseR = m_robot->rootLink()->R;//以下でbaseRを使うためbaseRも直す
+    hrp::Vector3 basew = rats::matrix_log( baseR * baseRprev.transpose() ) / m_dt; // TODO ;;ただしそう
     // 姿勢を微分することで角速度を得る
-    hrp::Vector3 basew = hrp::Vector3::Zero();//とりあえず0を入れている
+    // hrp::Vector3 basew = hrp::Vector3::Zero();//とりあえず0を入れている
     basew = basewFilter->passFilter(basew);//角速度は振動するのでローパス
-    hrp::Vector3 basedw = (basew - basewprev) /m_dt;//角速度を得る
-    basedw = basedwFilter->passFilter(basedw);//角速度をローパス
+    hrp::Vector3 basedw = (basew - basewprev) /m_dt;//角加速度を得る
+    basedw = basedwFilter->passFilter(basedw);//角加速度をローパス
     baseRprev = baseR;
     basewprev = basew;
     m_robot->rootLink()->R = baseR;//rpyをm_robotへ
-    m_robot->rootLink()->w = basew;//角速度をm_robotへ
+    // m_robot->rootLink()->w = basew;//角速度をm_robotへ
+    m_robot->rootLink()->w = hrp::Vector3::Zero();//角速度は０とする
     m_robot->rootLink()->dw = basedw;//各加速度をm_robotへ
 
-    m_robot->rootLink()->p = hrp::Vector3::Zero(); //baseの位置を取得しm_robotへ とりあえずゼロを入れている. どうやって取得するか不明?
+    m_robot->rootLink()->p = hrp::Vector3::Zero(); //baseの位置を取得しm_robotへ とりあえずゼロを入れている. どうやって取得するか不明?　基準だから０で良さそう
     hrp::Vector3 basev = hrp::Vector3::Zero();//TODO baseの速度を取得 0を入れている
     m_robot->rootLink()->v = basev;//速度をm_robotへ
-    hrp::Vector3 basedv = hrp::Vector3::Zero();//TODO baseの加速度を取得 0を入れている
+    // hrp::Vector3 basedv = hrp::Vector3::Zero();//TODO baseの加速度を取得 0を入れている;;;;;;;imuからとるtodo
+    hrp::Vector3 basedv = senR * hrp::Vector3(m_acc.data.ax, m_acc.data.ay, m_acc.data.az);
     m_robot->rootLink()->dv = basedv;//加速度をm_robotへ
 
     //m_robot->calcForwardKinematics();//FKを解く 各リンクの空間位置を得る

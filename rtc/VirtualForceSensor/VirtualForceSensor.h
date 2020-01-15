@@ -171,12 +171,14 @@ class VirtualForceSensor
   TimedDoubleSeq m_tauIn;
   TimedOrientation3D m_baseRpy;
   std::vector<TimedDoubleSeq> m_wrenches;
+  TimedAcceleration3D m_acc;
   
   // DataInPort declaration
   // <rtc-template block="inport_declare">
   InPort<TimedDoubleSeq> m_qCurrentIn;
   InPort<TimedDoubleSeq> m_tauInIn;
   InPort<TimedOrientation3D> m_baseRpyIn;
+  InPort<TimedAcceleration3D> m_accIn;
   std::vector<RTC::InPort<TimedDoubleSeq> *> m_wrenchesIn; 
   
   // </rtc-template>
