@@ -498,11 +498,12 @@ class HrpsysConfigurator(object):
             #  virtual force sensors
             if self.ic:
                 for vfp in filter(lambda x: str.find(x, 'v') >= 0 and
-                                  str.find(x, 'sensor') >= 0, self.vs.ports.keys()):
+                                  str.find(x, 'sensor') >= 0 and
+                                  str.find(x, 'off_') < 0, self.vs.ports.keys()):
                     # connectPorts(self.vs.port(vfp), self.ic.port(vfp))
             # if self.st:
             #     for vfp in filter(lambda x: str.find(x, 'estimation') >= 0, self.vs.ports.keys()):
-                    connectPorts(self.vs.port(vfp), self.st.port(vfp))
+                    connectPorts(self.vs.port('off_'+vfp), self.st.port(vfp))
         # connection for co
         if self.co:
             connectPorts(self.rh.port("q"), self.co.port("qCurrent"))

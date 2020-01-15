@@ -3001,6 +3001,10 @@ void Stabilizer::calcTorque (const hrp::Matrix33& rot)
   // buffers for the unit vector method
   hrp::Vector3 root_w_x_v;
   hrp::Vector3 g(0, 0, 9.80665);
+  m_robot->rootLink()->v.setZero();
+  m_robot->rootLink()->w.setZero();
+  m_robot->rootLink()->dv.setZero();
+  m_robot->rootLink()->vo.setZero();
   root_w_x_v = m_robot->rootLink()->w.cross(m_robot->rootLink()->vo + m_robot->rootLink()->w.cross(m_robot->rootLink()->p));
   m_robot->rootLink()->dvo = g - root_w_x_v;   // dv = g, dw = 0
   m_robot->rootLink()->dw.setZero();
@@ -3057,14 +3061,30 @@ void Stabilizer::calcTorque (const hrp::Matrix33& rot)
           jm.calcJacobian(JJ);
           hrp::dvector ft(6);
           // for (size_t i = 0; i < 6; i++) ft(i) = contact_ft(i+j*6);
+          // ft.segment(0,3) = rot * ikp.ref_force;
+          // ft.segment(3,3) = rot * ikp.ref_moment;
+          // ft.segment(0,3) = ikp.localR.transpose() * rot * ikp.ref_force;
+          // ft.segment(3,3) = ikp.localR.transpose() * ( (target->R*ikp.localp).cross(rot * ikp.ref_force) + (rot * ikp.ref_moment));
           ft.segment(0,3) = rot * ikp.ref_force;
-          ft.segment(3,3) = rot * ikp.ref_moment;
+          ft.segment(3,3) = (target->R*ikp.localp).cross(rot * ikp.ref_force) + (rot * ikp.ref_moment);
           hrp::dvector tq_from_extft(jm.numJoints());
           tq_from_extft = JJ.transpose() * ft;
           // if (loop%200==0) {
-          //   std::cerr << ":ft "; rats::print_vector(std::cerr, ft);
-          //   std::cerr << ":JJ "; rats::print_matrix(std::cerr, JJ);
-          //   std::cerr << ":tq_from_extft "; rats::print_vector(std::cerr, tq_from_extft);
+          //     hrp::dvector footorg_wrench(6);
+          //     footorg_wrench.segment(0,3) = ikp.ref_force; footorg_wrench.segment(3,3) = ikp.ref_moment;
+          //     hrp::dvector world_wrench(6);
+          //     world_wrench.segment(0,3) = rot * ikp.ref_force; world_wrench.segment(3,3) = rot * ikp.ref_moment;
+
+          //     std::cerr << ikp.target_name << std::endl;
+          //     std::cerr << ":localp  " << (ikp.localp).transpose() << std::endl;
+          //     std::cerr << ":worldp  " << (target->R*ikp.localp).transpose() << std::endl;
+          //     std::cerr << ":footorg " << footorg_wrench.transpose() << std::endl;
+          //     std::cerr << ":world   " << world_wrench.transpose() << std::endl;
+          //     std::cerr << ":link    " << ft.transpose() << std::endl;
+          //     std::cerr << ":tq " << tq_from_extft.transpose() << std::endl;
+          //   // std::cerr << ":JJ "; rats::print_matrix(std::cerr, JJ);
+          //   // std::cerr << ":tq_from_extft "; rats::print_vector(std::cerr, tq_from_extft);
+          //     std::cerr << std::endl;
           // }
           for (size_t i = 0; i < jm.numJoints(); i++) jm.joint(i)->u -= tq_from_extft(i);
       }
