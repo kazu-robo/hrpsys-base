@@ -227,6 +227,7 @@ class VirtualForceSensor
   boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> > basewFilter;
   boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> > basedwFilter;
   boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> > tauFilter;
+  boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> > basedvFilter;
   std::vector<boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector6> > > wrenchFilter;
   hrp::dvector qprev;
   hrp::dvector dqprev;
