@@ -304,10 +304,10 @@ RTC::ReturnCode_t VirtualForceSensor::onExecute(RTC::UniqueId ec_id)
     }
     m_robot->calcForwardKinematics();//FKを解く 各リンクの空間位置を得る（一旦目標姿勢にすることで実際のRを正しく得られる）
     hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
-    hrp::Matrix33 senR = sen->link->R * sen->localR;//imuのルートリンク相対の回転行列
-    hrp::Matrix33 baseR = hrp::rotFromRpy(m_baseRpy.data.r, m_baseRpy.data.p, m_baseRpy.data.y);//現在のimu->kf->vsのrpyから計算した姿勢の回転行列
-    m_robot->rootLink()->R = baseR * (senR.transpose() * m_robot->rootLink()->R);//m_robotにルートリンク姿勢を代入
-    baseR = m_robot->rootLink()->R;//以下でbaseRを使うためbaseRも直す
+    hrp::Matrix33 senR = sen->link->R * sen->localR;//imuのroot-link相対の回転行列
+    hrp::Matrix33 imuR = hrp::rotFromRpy(m_baseRpy.data.r, m_baseRpy.data.p, m_baseRpy.data.y);//現在のimu->kf->vsのrpyから計算した姿勢の回転行列
+    // m_robot->rootLink()->R = baseR * senR.transpose();//m_robotにルートリンク姿勢を代入
+    hrp::Matrix33 baseR = imuR * senR.transpose();
     hrp::Vector3 basew = rats::matrix_log( baseR * baseRprev.transpose() ) / m_dt; // TODO ;;ただしそう
     // 姿勢を微分することで角速度を得る
     // hrp::Vector3 basew = hrp::Vector3::Zero();//とりあえず0を入れている
@@ -325,10 +325,11 @@ RTC::ReturnCode_t VirtualForceSensor::onExecute(RTC::UniqueId ec_id)
     hrp::Vector3 basev = hrp::Vector3::Zero();//TODO baseの速度を取得 0を入れている
     m_robot->rootLink()->v = basev;//速度をm_robotへ
     // hrp::Vector3 basedv = hrp::Vector3::Zero();//TODO baseの加速度を取得 0を入れている;;;;;;;imuからとるtodo
-    hrp::Vector3 basedv = senR * hrp::Vector3(m_acc.data.ax, m_acc.data.ay, m_acc.data.az);
+    // hrp::Vector3 basedv = baseR.transpose * senR * hrp::Vector3(m_acc.data.ax, m_acc.data.ay, m_acc.data.az); // これはrootlink座標系
+    hrp::Vector3 basedv = senR * hrp::Vector3(m_acc.data.ax, m_acc.data.ay, m_acc.data.az); // これはworld座標系
     basedv = basedvFilter->passFilter(basedv);//加速度をローパス
-    m_robot->rootLink()->dv = basedv;//加速度をm_robotへ
-    // m_robot->rootLink()->dv = hrp::Vector3::Zero();//加速度をm_robotへ
+    // m_robot->rootLink()->dv = basedv;//加速度をm_robotへ
+    m_robot->rootLink()->dv = hrp::Vector3::Zero();//加速度をm_robotへ
 
     //m_robot->calcForwardKinematics();//FKを解く 各リンクの空間位置を得る
     m_robot->calcForwardKinematics(true/*速度のFKも解く*/,true/*加速度のFKも解く*/);//FKを解く 各リンクの空間位置,空間速度、角速度を得る
