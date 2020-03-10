@@ -184,11 +184,14 @@ RTC::ReturnCode_t VirtualForceSensor::onInitialize()
   
   qCurrentFilter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> >(new FirstOrderLowPassFilter<hrp::dvector>(250, m_dt, hrp::dvector::Zero(m_robot->numJoints()))); // [Hz]
   dqCurrentFilter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> >(new FirstOrderLowPassFilter<hrp::dvector>(50.0, m_dt, hrp::dvector::Zero(m_robot->numJoints()))); // [Hz]
-  ddqCurrentFilter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> >(new FirstOrderLowPassFilter<hrp::dvector>(50.0, m_dt, hrp::dvector::Zero(m_robot->numJoints()))); // [Hz]
+  // ddqCurrentFilter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> >(new FirstOrderLowPassFilter<hrp::dvector>(50.0, m_dt, hrp::dvector::Zero(m_robot->numJoints()))); // [Hz]
+  ddqCurrentFilter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> >(new FirstOrderLowPassFilter<hrp::dvector>(1.0, m_dt, hrp::dvector::Zero(m_robot->numJoints()))); // [Hz]
   basewFilter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> >(new FirstOrderLowPassFilter<hrp::dvector>(50.0, m_dt, hrp::Vector3::Zero())); // [Hz]
-  basedwFilter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> >(new FirstOrderLowPassFilter<hrp::dvector>(50.0, m_dt, hrp::Vector3::Zero())); // [Hz]
+  // basedwFilter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> >(new FirstOrderLowPassFilter<hrp::dvector>(50.0, m_dt, hrp::Vector3::Zero())); // [Hz]
+  basedwFilter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> >(new FirstOrderLowPassFilter<hrp::dvector>(1.0, m_dt, hrp::Vector3::Zero())); // [Hz]
   tauFilter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> >(new FirstOrderLowPassFilter<hrp::dvector>(1, m_dt, hrp::dvector::Zero(m_robot->numJoints()))); // [Hz]
-  basedvFilter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> >(new FirstOrderLowPassFilter<hrp::dvector>(10.0, m_dt, hrp::Vector3::Zero())); // [Hz]
+  // basedvFilter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> >(new FirstOrderLowPassFilter<hrp::dvector>(10.0, m_dt, hrp::Vector3::Zero())); // [Hz]
+  basedvFilter = boost::shared_ptr<FirstOrderLowPassFilter<hrp::dvector> >(new FirstOrderLowPassFilter<hrp::dvector>(1.0, m_dt, hrp::Vector3::Zero())); // [Hz]
   qprev = hrp::dvector::Zero(m_robot->numJoints());
   dqprev = hrp::dvector::Zero(m_robot->numJoints());
   baseRprev = hrp::Matrix33::Identity();
@@ -299,8 +302,8 @@ RTC::ReturnCode_t VirtualForceSensor::onExecute(RTC::UniqueId ec_id)
     dqprev = dqCurrent;
     ddqCurrent = ddqCurrentFilter->passFilter(ddqCurrent);//加速度は振動するのでローパス
     for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
-        // m_robot->joint(i)->ddq = ddqCurrent[i];//m_robotに関節加速度を代入
-        m_robot->joint(i)->ddq = 0.0;
+        m_robot->joint(i)->ddq = ddqCurrent[i];//m_robotに関節加速度を代入
+        // m_robot->joint(i)->ddq = 0.0;
     }
     m_robot->calcForwardKinematics();//FKを解く 各リンクの空間位置を得る（一旦目標姿勢にすることで実際のRを正しく得られる）
     hrp::Sensor* sen = m_robot->sensor<hrp::RateGyroSensor>("gyrometer");
@@ -319,8 +322,8 @@ RTC::ReturnCode_t VirtualForceSensor::onExecute(RTC::UniqueId ec_id)
     m_robot->rootLink()->R = baseR;//rpyをm_robotへ
     // m_robot->rootLink()->w = basew;//角速度をm_robotへ
     m_robot->rootLink()->w = hrp::Vector3::Zero();//角速度は０とする
-    // m_robot->rootLink()->dw = basedw;//各加速度をm_robotへ
-    m_robot->rootLink()->dw = hrp::Vector3::Zero();
+    m_robot->rootLink()->dw = basedw;//各加速度をm_robotへ
+    // m_robot->rootLink()->dw = hrp::Vector3::Zero();
     m_robot->rootLink()->p = hrp::Vector3::Zero(); //baseの位置を取得しm_robotへ とりあえずゼロを入れている. どうやって取得するか不明?　基準だから０で良さそう
     hrp::Vector3 basev = hrp::Vector3::Zero();//TODO baseの速度を取得 0を入れている
     m_robot->rootLink()->v = basev;//速度をm_robotへ
@@ -328,8 +331,8 @@ RTC::ReturnCode_t VirtualForceSensor::onExecute(RTC::UniqueId ec_id)
     // hrp::Vector3 basedv = baseR.transpose * senR * hrp::Vector3(m_acc.data.ax, m_acc.data.ay, m_acc.data.az); // これはrootlink座標系
     hrp::Vector3 basedv = senR * hrp::Vector3(m_acc.data.ax, m_acc.data.ay, m_acc.data.az); // これはworld座標系
     basedv = basedvFilter->passFilter(basedv);//加速度をローパス
-    // m_robot->rootLink()->dv = basedv;//加速度をm_robotへ
-    m_robot->rootLink()->dv = hrp::Vector3::Zero();//加速度をm_robotへ
+    m_robot->rootLink()->dv = basedv;//加速度をm_robotへ
+    // m_robot->rootLink()->dv = hrp::Vector3::Zero();//加速度をm_robotへ
 
     //m_robot->calcForwardKinematics();//FKを解く 各リンクの空間位置を得る
     m_robot->calcForwardKinematics(true/*速度のFKも解く*/,true/*加速度のFKも解く*/);//FKを解く 各リンクの空間位置,空間速度、角速度を得る
