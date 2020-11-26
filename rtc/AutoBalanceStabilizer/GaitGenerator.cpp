@@ -916,22 +916,18 @@ bool GaitGenerator::setFootSteps(const std::vector<int>& support_link_cycle,
     //                   OpenHRP.AutoBalancerService.Footsteps([OpenHRP.AutoBalancerService.Footstep([0.44,0.09,0], [1,0,0,0], "lleg")])]);
     // なんでfootstepsSequence?
 
-    
-
-
     // 一歩目というか０歩目というかの処理 -> そのままじゃあかん？
     // fs0_lefttmpの処理doen
-    
         
     // hrp::Vector3 fs0(0,-0.09,0); // rleg  
     // hrp::Vector3 fs1(0.2,0.09,0); // lleg     
     hrp::Vector3 dp[length];
     // Eigen::Quaterniond dr4(1,0,0,deg2rad(15)); //(x,y,z,w) x,y,z: rotation axis,  w: rotation angle (radian, half of the rotation angle)
     Eigen::Quaterniond dr_dash[length];
-    Eigen::Quaterniond dr[length];    
+    Eigen::Quaterniond dr[length];
     for(int i=0;i<length;i++){
         dr_dash[i]=footsteps_rot[i];
-        dr_dash[i].w()=-dr_dash[i].w();
+        dr_dash[i].w()=-dr_dash[i].w(); // -?
     }
 
     int opposite_initial_fs_index=0;
@@ -975,30 +971,29 @@ bool GaitGenerator::setFootSteps(const std::vector<int>& support_link_cycle,
 
             dr[i]=footsteps_rot[i];
         }
-        else if(i<opposite_initial_fs_index){ // 0歩目と1歩目が同じなど、逆足を動かすまで
+        else if (i<opposite_initial_fs_index){ // 0歩目と1歩目が同じなど、逆足を動かすまで
             dr[i]=footsteps_rot[i] * dr_dash[i-1];
         }
-        else if(i==opposite_initial_fs_index){ // 逆足の一歩目
+        else if (i==opposite_initial_fs_index){ // 逆足の一歩目
             dr[i]=footsteps_rot[i];
         }
-        else if(fs_side[i]==0){ // 右足
-            for(int j=i-1;j>=0;j--){
-                if(fs_side[j]==0){
+        else if (fs_side[i]==0){ // 右足
+            for (int j=i-1;j>=0;j--){
+                if (fs_side[j]==0){
                     dr[i]=footsteps_rot[i] * dr_dash[j];
                     break;
                 }
             }
         }
         else{                   // 左足
-            for(int j=i-1;j>=0;j--){
-                if(fs_side[j]==1){
+            for (int j=i-1;j>=0;j--){
+                if (fs_side[j]==1){
                     dr[i]=footsteps_rot[i] * dr_dash[j];
                     break;
                 }
             }
         }
     }
-    
 
     
     std::vector<ConstraintsWithCount> new_constraints;
@@ -1067,38 +1062,43 @@ bool GaitGenerator::setFootSteps(const std::vector<int>& support_link_cycle,
 
     
     // footstep
-    for(int step=1;step<length;step++){ // 踏み出すfootstepから
+    for(size_t step=1;step<length;step++){ // 踏み出すfootstepから
         const ConstraintsWithCount& next_constraints = new_constraints.back();
         int support_idx, swing_idx;
 
         cur_cycle = fs_side[step];
         
         if (!getSupportSwingIndex(support_idx, swing_idx, next_constraints, cur_cycle)) return false;
-        const Eigen::Isometry3d& support_target = next_constraints.constraints[support_idx].targetCoord();
+        // const Eigen::Isometry3d& support_target = next_constraints.constraints[support_idx].targetCoord();
 
-        const Eigen::Isometry3d& swing_target = next_constraints.constraints[swing_idx].targetCoord();
-        sup_to_swing_trans = support_target.inverse() * swing_target;
+        // const Eigen::Isometry3d& swing_target = next_constraints.constraints[swing_idx].targetCoord();
+        // sup_to_swing_trans = support_target.inverse() * swing_target;
 
-        Eigen::Isometry3d landing_target = next_constraints.constraints[support_idx].targetCoord() * sup_to_swing_trans;
+        // Eigen::Isometry3d landing_target = next_constraints.constraints[support_idx].targetCoord() * sup_to_swing_trans;
+        Eigen::Isometry3d landing_target;
         
-        Eigen::Isometry3d rotate_around_cop = translationFromLimbToCOP[swing_idx].inverse();
-        rotate_around_cop.prerotate(dr[step]);
-        landing_target = landing_target * translationFromLimbToCOP[swing_idx] * rotate_around_cop; 
+        // Eigen::Isometry3d rotate_around_cop = translationFromLimbToCOP[swing_idx].inverse();
+        // rotate_around_cop.prerotate(dr[step]);
+        // landing_target = landing_target * translationFromLimbToCOP[swing_idx] * rotate_around_cop; 
         
-        if(step == opposite_initial_fs_index){                       // first moving step
-            hrp::Vector3 landing_target_initial_z = landing_target.translation();
-            landing_target_initial_z.x() = 0;
-            landing_target_initial_z.y() = 0;            
-            if(fs_side[step]==0){                                           // right
-                landing_target.translation() = landing_target_initial_z + dp[step];                
-            }
-            else{                   // left
-                landing_target.translation() = landing_target_initial_z + dp[step];
-            }
-        }
-        else{
-            landing_target.translation() = landing_target.translation() + dp[step];
-        }
+        // if (step == opposite_initial_fs_index){                       // first moving step
+        //     hrp::Vector3 landing_target_initial_z = landing_target.translation();
+        //     landing_target_initial_z.x() = 0;
+        //     landing_target_initial_z.y() = 0;            
+        //     if (fs_side[step]==0){                                           // right
+        //         landing_target.translation() = landing_target_initial_z + dp[step];                
+        //     }
+        //     else{                   // left
+        //         landing_target.translation() = landing_target_initial_z + dp[step];
+        //     }
+        // }
+        // else{
+        //     landing_target.translation() = landing_target.translation() + dp[step];
+        // }
+        landing_target.linear() = footsteps_rot[step].normalized().toRotationMatrix();
+        landing_target.translation().x() = footsteps_pos[step].x();
+        landing_target.translation().y() = footsteps_pos[step].y();
+        landing_target.translation().z() = footsteps_pos[step].z();
 
         addNewFootSteps(next_constraints, swing_idx, support_idx, landing_target, false);
 
@@ -1144,18 +1144,18 @@ bool GaitGenerator::setRunningFootSteps(const std::vector<int>& support_link_cyc
     // 4. is_end的な最後の姿勢の調整みたいなこと -> NOSIMだと出来てる
     
 
-    hrp::Vector3 dp_from_init_step[length];
+    // hrp::Vector3 dp_from_init_step[length];
 
-    dp_from_init_step[0] = footsteps_pos[0];
-    for(int i=1;i<length;i++){  // for y input
-        dp_from_init_step[i] = footsteps_pos[i];
-        if(fs_side[i]==fs_side[0]){
-            dp_from_init_step[i].y() -= dp_from_init_step[0].y();
-        }
-        else{                   // opposite from first landing leg
-            dp_from_init_step[i].y() += dp_from_init_step[0].y();            
-        }
-    }
+    // dp_from_init_step[0] = footsteps_pos[0];
+    // for(int i=1;i<length;i++){  // for y input
+    //     dp_from_init_step[i] = footsteps_pos[i];
+    //     if(fs_side[i]==fs_side[0]){
+    //         dp_from_init_step[i].y() -= dp_from_init_step[0].y();
+    //     }
+    //     else{                   // opposite from first landing leg
+    //         dp_from_init_step[i].y() += dp_from_init_step[0].y();
+    //     }
+    // }
 
     running_mode = EXTENDED_MATRIX; 
 
@@ -1167,10 +1167,10 @@ bool GaitGenerator::setRunningFootSteps(const std::vector<int>& support_link_cyc
 
     std::vector<size_t> jump_idx{1};
     std::vector<size_t> land_idx{0};
-    std::vector<Eigen::Isometry3d> org_targets;
-    for (const auto& constraint : constraints_list[cur_const_idx].constraints) {
-        org_targets.push_back(constraint.targetCoord());
-    }
+    // std::vector<Eigen::Isometry3d> org_targets;
+    // for (const auto& constraint : constraints_list[cur_const_idx].constraints) {
+    //     org_targets.push_back(constraint.targetCoord());
+    // }
 
     std::vector<Eigen::Isometry3d> targets(1);
     // if (fs_side[0]==0){         // first running step is right
@@ -1212,11 +1212,11 @@ bool GaitGenerator::setRunningFootSteps(const std::vector<int>& support_link_cyc
     for (size_t i = 0; i < length; ++i) { // step 
         if(i==0){
             if (fs_side[0]==0){         // first running step is right
-                targets[0]=org_targets[land_idx[0]];// first step landing leg, right leg landing default, 初手はこれでもらう
+                // targets[0]=org_targets[land_idx[0]];// first step landing leg, right leg landing default, 初手はこれでもらう
             }
             else if (fs_side[0]==1){     // first running step is left
                 std::swap(jump_idx[0], land_idx[0]);            
-                targets[0]=org_targets[land_idx[0]];
+                // targets[0]=org_targets[land_idx[0]];
             }
             else{
                 std::cerr << "fs_side[0] is not 0(right) nor 1(left) in setRunningFootSteps" << std::endl;
@@ -1229,15 +1229,25 @@ bool GaitGenerator::setRunningFootSteps(const std::vector<int>& support_link_cyc
         }
 
         // targets[0] = org_targets[land_idx[0]];
-        targets[0].translation() = hrp::Vector3(0,0,0); // robot相対座標原点        
-        targets[0].linear() = Eigen::AngleAxisd(0, Eigen::Vector3d::UnitZ()).toRotationMatrix();
         
-        targets[0] = footsteps_rot[i] * targets[0];
-        targets[0].translation() += footsteps_pos[i];
+        // targets[0].translation() = hrp::Vector3(0,0,0); // robot相対座標原点はどこから？ほしいのはx,y,yaw
+        // targets[0].linear() = Eigen::AngleAxisd(0, Eigen::Vector3d::UnitZ()).toRotationMatrix(); // robotの向きであるべき
+        
+        // org_targets[land_idx[0]].translation()を足す？
+        
+        // targets[0] = footsteps_rot[i] * targets[0];
+        // targets[0].translation() += footsteps_pos[i];
+        targets[0].linear() = footsteps_rot[i].normalized().toRotationMatrix();
+        targets[0].translation().x() = footsteps_pos[i].x();
+        targets[0].translation().y() = footsteps_pos[i].y();
+        targets[0].translation().z() = footsteps_pos[i].z();
         
         // targets[0].translation() += dp_from_init_step[i];
         // targets[0] = footsteps_rot[i] * targets[0]; // 開いてく
 
+        std::cerr << "targets x : " << targets[0].translation().x() << std::endl;
+        std::cerr << "targets y : " << targets[0].translation().y() << std::endl;
+        std::cerr << "targets z : " << targets[0].translation().z() << std::endl;
 
         const ConstraintsWithCount& last_constraints = new_constraints.back();
         const std::vector<ConstraintsWithCount> run_constraints = calcFootStepConstraintsForRun(last_constraints,

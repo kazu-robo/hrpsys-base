@@ -1393,6 +1393,11 @@ bool AutoBalanceStabilizer::setFootSteps(const OpenHRP::AutoBalanceStabilizerSer
         return false;
     }
 
+    const hrp::ConstraintsWithCount& cur_constraints = gg->getCurrentConstraints(loop);
+    Eigen::Isometry3d start_coord = cur_constraints.calcCOPCoord();
+    // target.translation() += target.linear() * hrp::Vector3(x, y, 0);
+    // target.linear() = target.linear() * Eigen::AngleAxisd(deg2rad(th), Eigen::Vector3d::UnitZ()).toRotationMatrix();
+
     // TODO: confファイルからcycleをよむ
     // CHIDORI
     // std::vector<int> support_link_cycle{13, 7};
@@ -1403,6 +1408,9 @@ bool AutoBalanceStabilizer::setFootSteps(const OpenHRP::AutoBalanceStabilizerSer
     std::vector<int> swing_link_cycle{31, 25};
     int length=fss.length();
     int fs_side[length];        // 0->右 1->左
+    Eigen::Isometry3d footstep_coord;
+    hrp::Vector3 footstep_pos;
+    Eigen::Quaterniond footstep_q;
     hrp::Vector3 footsteps_pos[length];
     Eigen::Quaterniond footsteps_rot[length];
     std::vector<std::string> side(length);
@@ -1419,15 +1427,29 @@ bool AutoBalanceStabilizer::setFootSteps(const OpenHRP::AutoBalanceStabilizerSer
             std::cerr << "[" << m_profile.instance_name << "] footstep leg is not lleg or rleg" << std::endl; // biped only
             return false;
         }
-        footsteps_pos[i].x()=fss[i].fs[0].pos[0];
-        footsteps_pos[i].y()=fss[i].fs[0].pos[1];
-        footsteps_pos[i].z()=fss[i].fs[0].pos[2];
-        footsteps_rot[i].w()=fss[i].fs[0].rot[0];
-        footsteps_rot[i].x()=fss[i].fs[0].rot[1];
-        footsteps_rot[i].y()=fss[i].fs[0].rot[2];
-        footsteps_rot[i].z()=fss[i].fs[0].rot[3];
+
+        footstep_pos.x() = fss[i].fs[0].pos[0];
+        footstep_pos.y() = fss[i].fs[0].pos[1];
+        footstep_pos.z() = fss[i].fs[0].pos[2];
+        footstep_q.w() = fss[i].fs[0].rot[0];
+        footstep_q.x() = fss[i].fs[0].rot[1];
+        footstep_q.y() = fss[i].fs[0].rot[2];
+        footstep_q.z() = fss[i].fs[0].rot[3];
+
+        footstep_coord.translation() = start_coord.translation() + start_coord.linear() * footstep_pos; // zがあるとき怪しい？start_coordでyaw軸以外の回転があった場合も
+        footstep_coord.linear() = start_coord.linear() * footstep_q.normalized().toRotationMatrix();
+        
+        footsteps_pos[i] = footstep_coord.translation();
+        footsteps_rot[i] = footstep_coord.linear();
+
+        // footsteps_pos[i].x()=fss[i].fs[0].pos[0];
+        // footsteps_pos[i].y()=fss[i].fs[0].pos[1];
+        // footsteps_pos[i].z()=fss[i].fs[0].pos[2];
+        // footsteps_rot[i].w()=fss[i].fs[0].rot[0];
+        // footsteps_rot[i].x()=fss[i].fs[0].rot[1];
+        // footsteps_rot[i].y()=fss[i].fs[0].rot[2];
+        // footsteps_rot[i].z()=fss[i].fs[0].rot[3];
     }
-    
 
     if (!gg->setFootSteps(support_link_cycle, swing_link_cycle, footsteps_pos, footsteps_rot, fs_side, length)) return false;
 
@@ -1450,6 +1472,9 @@ bool AutoBalanceStabilizer::setRunningFootSteps(const OpenHRP::AutoBalanceStabil
         return false;
     }
 
+    const hrp::ConstraintsWithCount& cur_constraints = gg->getCurrentConstraints(loop);
+    Eigen::Isometry3d start_coord = cur_constraints.calcCOPCoord();    
+
     // TODO: confファイルからcycleをよむ
     // CHIDORI
     // std::vector<int> support_link_cycle{13, 7};
@@ -1460,6 +1485,9 @@ bool AutoBalanceStabilizer::setRunningFootSteps(const OpenHRP::AutoBalanceStabil
     std::vector<int> swing_link_cycle{31, 25};
     int length=fss.length();
     int fs_side[length];        // 0->右 1->左
+    Eigen::Isometry3d footstep_coord;
+    hrp::Vector3 footstep_pos;
+    Eigen::Quaterniond footstep_q;
     hrp::Vector3 footsteps_pos[length];
     Eigen::Quaterniond footsteps_rot[length];
     std::vector<std::string> side(length);
@@ -1476,13 +1504,28 @@ bool AutoBalanceStabilizer::setRunningFootSteps(const OpenHRP::AutoBalanceStabil
             std::cerr << "[" << m_profile.instance_name << "] footstep leg is not lleg or rleg" << std::endl; // biped only
             return false;
         }
-        footsteps_pos[i].x()=fss[i].fs[0].pos[0];
-        footsteps_pos[i].y()=fss[i].fs[0].pos[1];
-        footsteps_pos[i].z()=fss[i].fs[0].pos[2];
-        footsteps_rot[i].w()=fss[i].fs[0].rot[0];
-        footsteps_rot[i].x()=fss[i].fs[0].rot[1];
-        footsteps_rot[i].y()=fss[i].fs[0].rot[2];
-        footsteps_rot[i].z()=fss[i].fs[0].rot[3];
+
+        footstep_pos.x() = fss[i].fs[0].pos[0];
+        footstep_pos.y() = fss[i].fs[0].pos[1];
+        footstep_pos.z() = fss[i].fs[0].pos[2];
+        footstep_q.w() = fss[i].fs[0].rot[0];
+        footstep_q.x() = fss[i].fs[0].rot[1];
+        footstep_q.y() = fss[i].fs[0].rot[2];
+        footstep_q.z() = fss[i].fs[0].rot[3];
+
+        footstep_coord.translation() = start_coord.translation() + start_coord.linear() * footstep_pos; // zがあるとき怪しい？start_coordでyaw軸以外の回転があった場合も
+        footstep_coord.linear() = start_coord.linear() * footstep_q.normalized().toRotationMatrix();
+        
+        footsteps_pos[i] = footstep_coord.translation();
+        footsteps_rot[i] = footstep_coord.linear();
+        
+        // footsteps_pos[i].x()=fss[i].fs[0].pos[0];
+        // footsteps_pos[i].y()=fss[i].fs[0].pos[1];
+        // footsteps_pos[i].z()=fss[i].fs[0].pos[2];
+        // footsteps_rot[i].w()=fss[i].fs[0].rot[0];
+        // footsteps_rot[i].x()=fss[i].fs[0].rot[1];
+        // footsteps_rot[i].y()=fss[i].fs[0].rot[2];
+        // footsteps_rot[i].z()=fss[i].fs[0].rot[3];
     }
     
 
