@@ -1075,6 +1075,80 @@ bool GaitGenerator::setRunningFootSteps(hrp::Vector3 footsteps_pos[],
     std::cerr << "add run end" << std::endl;
 }
 
+bool GaitGenerator::setJumpingFootSteps(const double dt,
+                                        std::vector<std::vector<hrp::Vector3> > footsteps_pos,
+                                        std::vector<std::vector<Eigen::Quaterniond> > footsteps_rot,
+                                        std::vector<std::vector<int> > fs_side,
+                                        const double g_acc)
+{
+    std::vector<ConstraintsWithCount> new_constraints;
+    // new_constraints.reserve(42); // ?
+    {
+        ConstraintsWithCount cur_constraints = constraints_list[cur_const_idx];
+        cur_constraints.start_count = loop;
+        new_constraints.push_back(std::move(cur_constraints));
+        new_constraints.back().setDelayTimeOffsets(0.03);
+    }
+
+    // std::vector<size_t> jump_indices{0, 1};
+    // std::vector<size_t> land_indices{0, 1};
+    // std::vector<Eigen::Isometry3d> targets;
+    // targets.reserve(jump_indices.size());
+    // for (const auto& constraint : constraints_list[cur_const_idx].constraints) {
+    //     targets.push_back(constraint.targetCoord());
+    // }
+
+    // running_mode = EXTENDED_MATRIX; // こいつが決定的か(run との違い)
+
+    const double take_off_z_vel = std::sqrt(2 * g_acc * default_jump_height);
+    const size_t flight_phase_count = static_cast<size_t>(2 * take_off_z_vel / g_acc / dt);
+
+    for (size_t i = 1; i < fs_side.size(); ++i) { // todo step数がなぜrunと異なる
+        const ConstraintsWithCount& last_constraints = new_constraints.back();
+        std::vector<Eigen::Isometry3d> targets;
+        std::vector<size_t> jump_indices; // 0 == rleg
+        std::vector<size_t> land_indices;
+
+        for (size_t j = 0; j < fs_side[i].size(); ++j) {
+            Eigen::Isometry3d target;
+
+            jump_indices.push_back(fs_side[i][j]);
+            land_indices.push_back(fs_side[i][j]);
+
+            target.linear() = footsteps_rot[i][j].normalized().toRotationMatrix();
+            target.translation().x() = footsteps_pos[i][j].x();
+            target.translation().y() = footsteps_pos[i][j].y();
+            target.translation().z() = footsteps_pos[i][j].z();
+
+            targets.push_back(target);
+        }
+
+        const std::vector<ConstraintsWithCount> run_constraints = calcFootStepConstraintsForRun(last_constraints,
+                                                                                                jump_indices,
+                                                                                                land_indices,
+                                                                                                targets,
+                                                                                                last_constraints.start_count + default_support_count_run,
+                                                                                                flight_phase_count);
+        for (const auto& constraints : run_constraints) {
+            new_constraints.push_back(constraints);
+        }
+
+        std::cerr << "add jump " << i << std::endl;
+    }
+
+    // Update constraints_list
+    std::lock_guard<std::mutex> lock(m_mutex);
+    default_step_height = default_jump_height + 0.02;
+    locomotion_mode = RUN;
+    const size_t diff_count = loop - new_constraints[0].start_count + 1;
+    for (auto& constraints : new_constraints) {
+        constraints.start_count += diff_count;
+    }
+    setConstraintsList(std::move(new_constraints));
+    setRefZMPList(loop);
+    std::cerr << "add jump end" << std::endl;
+}
+
 bool GaitGenerator::startRunning(const double dt, const double g_acc)
 {
     running_mode = EXTENDED_MATRIX;

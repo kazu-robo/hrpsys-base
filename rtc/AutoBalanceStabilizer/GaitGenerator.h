@@ -296,6 +296,10 @@ class GaitGenerator
                              int length,
                              const double dt,
                              const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
+    bool setJumpingFootSteps(const double dt, std::vector<std::vector<hrp::Vector3> > footsteps_pos,
+                             std::vector<std::vector<Eigen::Quaterniond> > footsteps_rot,
+                             std::vector<std::vector<int> > fs_side,
+                             const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
     bool startRunning(const double dt, const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
     bool startJumping(const double dt, const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
     bool startRunJumpDemo(const double dt, const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);

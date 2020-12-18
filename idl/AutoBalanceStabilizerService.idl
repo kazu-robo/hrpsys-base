@@ -650,6 +650,9 @@ module OpenHRP
     // TODO brief explanations of setRunningFootSteps
     boolean setRunningFootSteps(in FootstepsSequence fss);
 
+    // TODO brief explanations of setJumpingFootSteps
+    boolean setJumpingFootSteps(in FootstepsSequence fss);
+
     /**
      * @brief Wait for whole footsteps are executed.
      * @param

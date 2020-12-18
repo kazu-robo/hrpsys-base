@@ -121,6 +121,11 @@ CORBA::Boolean AutoBalanceStabilizerService_impl::setRunningFootSteps(const Open
     return m_autobalancestabilizer->setRunningFootSteps(fss);
 };
 
+CORBA::Boolean AutoBalanceStabilizerService_impl::setJumpingFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss)
+{
+    return m_autobalancestabilizer->setJumpingFootSteps(fss);
+};
+
 void AutoBalanceStabilizerService_impl::waitFootSteps()
 {
   return m_autobalancestabilizer->waitFootSteps();
