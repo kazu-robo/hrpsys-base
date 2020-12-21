@@ -10,6 +10,7 @@ module OpenHRP
   {
     typedef sequence<boolean> BoolSequence;
     typedef sequence<long> LongSequence;
+    typedef sequence<double> DblSequence;
     typedef sequence<double, 3> DblSequence3;
     typedef sequence<double, 4> DblSequence4;
     typedef sequence<DblSequence3> DblSeq3Seq;
@@ -651,7 +652,7 @@ module OpenHRP
     boolean setRunningFootSteps(in FootstepsSequence fss);
 
     // TODO brief explanations of setJumpingFootSteps
-    boolean setJumpingFootSteps(in FootstepsSequence fss);
+    boolean setJumpingFootSteps(in FootstepsSequence fss, in DblSequence jump_height_list);
 
     /**
      * @brief Wait for whole footsteps are executed.

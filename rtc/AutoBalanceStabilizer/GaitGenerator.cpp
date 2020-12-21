@@ -1033,7 +1033,6 @@ bool GaitGenerator::setRunningFootSteps(hrp::Vector3 footsteps_pos[],
     for (size_t i = 0; i < length; ++i) {
         if (i == 0 && fs_side[i] == 1) { // if first running step is left
             std::swap(jump_idx[0], land_idx[0]);
-
         }
         else if (i > 0) {
             if(fs_side[i] != fs_side[i-1]) {
@@ -1079,6 +1078,7 @@ bool GaitGenerator::setJumpingFootSteps(const double dt,
                                         std::vector<std::vector<hrp::Vector3> > footsteps_pos,
                                         std::vector<std::vector<Eigen::Quaterniond> > footsteps_rot,
                                         std::vector<std::vector<int> > fs_side,
+                                        std::vector<double> jump_height_vec,
                                         const double g_acc)
 {
     std::vector<ConstraintsWithCount> new_constraints;
@@ -1100,8 +1100,8 @@ bool GaitGenerator::setJumpingFootSteps(const double dt,
 
     // running_mode = EXTENDED_MATRIX; // こいつが決定的か(run との違い)
 
-    const double take_off_z_vel = std::sqrt(2 * g_acc * default_jump_height);
-    const size_t flight_phase_count = static_cast<size_t>(2 * take_off_z_vel / g_acc / dt);
+    // const double take_off_z_vel = std::sqrt(2 * g_acc * default_jump_height);
+    // const size_t flight_phase_count = static_cast<size_t>(2 * take_off_z_vel / g_acc / dt);
 
     for (size_t i = 1; i < fs_side.size(); ++i) { // todo step数がなぜrunと異なる
         const ConstraintsWithCount& last_constraints = new_constraints.back();
@@ -1122,6 +1122,9 @@ bool GaitGenerator::setJumpingFootSteps(const double dt,
 
             targets.push_back(target);
         }
+
+        const double take_off_z_vel = std::sqrt(2 * g_acc * jump_height_vec[i]);
+        const size_t flight_phase_count = static_cast<size_t>(2 * take_off_z_vel / g_acc / dt);
 
         const std::vector<ConstraintsWithCount> run_constraints = calcFootStepConstraintsForRun(last_constraints,
                                                                                                 jump_indices,

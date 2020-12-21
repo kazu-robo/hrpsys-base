@@ -1597,7 +1597,7 @@ bool AutoBalanceStabilizer::setRunningFootSteps(const OpenHRP::AutoBalanceStabil
     return true;
 }
 
-bool AutoBalanceStabilizer::setJumpingFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss)
+bool AutoBalanceStabilizer::setJumpingFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss, const OpenHRP::AutoBalanceStabilizerService::DblSequence& jump_height_list)
 {
     if (is_stop_mode) {
         std::cerr << "[" << m_profile.instance_name << "] Cannot setJumpingFootSteps while stopping mode." << std::endl;
@@ -1639,6 +1639,7 @@ bool AutoBalanceStabilizer::setJumpingFootSteps(const OpenHRP::AutoBalanceStabil
     std::vector<std::vector<hrp::Vector3> > footsteps_pos(length);
     std::vector<std::vector<Eigen::Quaterniond> > footsteps_rot(length);
     std::vector<std::vector<int> > fs_side(length);        // 0->右 1->左
+    std::vector<double> jump_height_vec(length);
     std::string side;
     std::cerr << "before for" << std::endl;
 
@@ -1676,7 +1677,14 @@ bool AutoBalanceStabilizer::setJumpingFootSteps(const OpenHRP::AutoBalanceStabil
         }
     }
 
-    if (!gg->setJumpingFootSteps(m_dt, footsteps_pos, footsteps_rot, fs_side)) return false;
+    // for (auto& jump_height : jump_height_list) {           // todo 両足で高さ変えたい場合ある?
+    //     jump_height_vec.push_back(jump_height);
+    // }
+    for (size_t fsi = 0; fsi < length; ++fsi){
+        jump_height_vec[fsi] = jump_height_list[fsi];
+    }
+
+    if (!gg->setJumpingFootSteps(m_dt, footsteps_pos, footsteps_rot, fs_side, jump_height_vec)) return false;
     // if (!gg->startJumping(m_dt)) return false;
 
     return true;

@@ -134,7 +134,7 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     bool setFootStepsWithParam(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss, const OpenHRP::AutoBalanceStabilizerService::StepParamsSequence& spss, CORBA::Long overwrite_fs_idx);
     bool setRunningFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss);
     // TODO setRunningFootStepsWithParam ?
-    bool setJumpingFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss);
+    bool setJumpingFootSteps(const OpenHRP::AutoBalanceStabilizerService::FootstepsSequence& fss, const OpenHRP::AutoBalanceStabilizerService::DblSequence& jump_height_list);
     // TODO setJumpingFootStepsWithParam ?
     void waitFootSteps();
     void waitFootStepsEarly(const double tm);
