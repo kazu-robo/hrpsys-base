@@ -143,13 +143,27 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
         next_flight = constraints_list[cur_const_idx + 1].isFlightPhase();
     }
 
+    bool last_flight = false;
+    if (cur_const_idx > 0) {
+        last_flight = constraints_list[cur_const_idx - 1].isFlightPhase();
+    }
+
     // const std::vector<size_t> sup_indices = constraints_list[cur_const_idx].getConstraintIndicesFromType(LinkConstraint::FIX); // TODO: 平足
     const bool is_flight = constraints_list[cur_const_idx].isFlightPhase();
     // Update ref zmp TODO: わかりづらい
-    if (is_flight) ref_zmp = cog_gen->calcCogForFlightPhase(dt);
-    else if (!next_flight) {
-        if (walking_mode == PREVIEW_CONTROL) cog_gen->calcCogFromZMP(zmp_gen->getRefZMPList(), dt);
+    // if (is_flight) ref_zmp = cog_gen->calcCogForFlightPhase(dt);
+    if (is_flight) {
+        ref_zmp = cog_gen->calcCogForFlightPhase(dt);
+        std::cerr << "is_flight" << std::endl;
+    }
+    else if (!next_flight && !last_flight) {
+        // if (walking_mode == PREVIEW_CONTROL) cog_gen->calcCogFromZMP(zmp_gen->getRefZMPList(), dt);
+        if (walking_mode == PREVIEW_CONTROL) {
+            cog_gen->calcCogFromZMP(zmp_gen->getRefZMPList(), dt);
+            std::cerr << "preview_control" << std::endl;
+        }
         else if (walking_mode == FOOT_GUIDED_WALK) {
+            std::cerr << "foot_guided_walk" << std::endl;
             if (cur_count == constraints_list[cur_const_idx].start_count &&
                 constraints_list[cur_const_idx].is_stable) {
                 // TODO: 空中をなんとかしてforward timestepにいれる
@@ -167,6 +181,7 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
     } else if (cur_const_idx < constraints_list.size() - 2) {
         const size_t count_to_jump = constraints_list[cur_const_idx + 1].start_count - cur_count;
         if (running_mode == FOOT_GUIDED_RUN) {
+            std::cerr << "foot_guided_run" << std::endl;
             // const std::vector<size_t> land_indices = constraints_list[cur_const_idx + 2].getConstraintIndicesFromType(LinkConstraint::FIX);
             // const auto support_point = constraints_list[cur_const_idx].constraints[sup_indices[0]].targetPos();
             // const auto landing_point = constraints_list[cur_const_idx + 2].constraints[land_indices[0]].targetPos();
@@ -190,6 +205,7 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
                                                  COGTrajectoryGenerator::FIX);
             cog_gen->calcCogZForJump(count_to_jump, default_jump_height, default_take_off_z, dt);
         } else if (running_mode == EXTENDED_MATRIX) {
+            std::cerr << "extended_matrix" << std::endl;
             if (cur_count == constraints_list[cur_const_idx].start_count) {
                 const auto support_point = constraints_list[cur_const_idx].calcCOPFromConstraints();
                 ref_zmp = support_point;
@@ -242,6 +258,94 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
             cog_gen->getCogFromCogList(cur_count, dt);
             ref_zmp = cog_gen->calcPointMassZMP();
         }
+    }
+    else {
+        const size_t count_to_jump = constraints_list[cur_const_idx + 1].start_count - cur_count;
+        if (running_mode == FOOT_GUIDED_RUN) {
+            std::cerr << "foot_guided_run" << std::endl;
+            // const std::vector<size_t> land_indices = constraints_list[cur_const_idx + 2].getConstraintIndicesFromType(LinkConstraint::FIX);
+            // const auto support_point = constraints_list[cur_const_idx].constraints[sup_indices[0]].targetPos();
+            // const auto landing_point = constraints_list[cur_const_idx + 2].constraints[land_indices[0]].targetPos();
+
+            const auto support_point = constraints_list[cur_const_idx].calcCOPFromConstraints();
+            const auto landing_point = constraints_list[cur_const_idx + 2].calcCOPFromConstraints();
+            const size_t supporting_count = constraints_list[cur_const_idx + 2].start_count - constraints_list[cur_const_idx + 1].start_count;
+            // const hrp::Vector3 offset = support_point[1] > 0 ? hrp::Vector3(0, -0.05, 0) : hrp::Vector3(0, 0.05, 0);
+            const hrp::Vector3 offset = hrp::Vector3::Zero();
+            ref_zmp = cog_gen->calcFootGuidedCog(support_point,
+                                                 landing_point,
+                                                 offset,
+                                                 offset,
+                                                 hrp::Vector3::Zero(),
+                                                 default_jump_height,
+                                                 constraints_list[cur_const_idx].start_count,
+                                                 supporting_count,
+                                                 constraints_list[cur_const_idx + 2].start_count,
+                                                 cur_count,
+                                                 dt,
+                                                 COGTrajectoryGenerator::FIX);
+            cog_gen->calcCogZForJump(count_to_jump, default_jump_height, default_take_off_z, dt);
+        } else if (running_mode == EXTENDED_MATRIX) {
+            std::cerr << "extended_matrix landing step" << std::endl;
+            if (cur_count == constraints_list[cur_const_idx].start_count) {
+                const auto support_point = constraints_list[cur_const_idx].calcCOPFromConstraints();
+                ref_zmp = support_point;
+                // const double y_offset = 0.015;
+                const double y_offset = 0.0;
+                ref_zmp[1] += (support_point[1] < 0) ? y_offset : -y_offset; // TODO: Body相対か何かを使う
+
+                std::cerr << "cur  cp: " << cog_gen->calcCP().transpose() << std::endl;
+                std::cerr << "diff cp: " << (cog_gen->calcCP() - support_point).transpose() << std::endl;
+
+                if (cur_const_idx < constraints_list.size() - 4) { // 要らない
+                    const auto next_landing_point = constraints_list[cur_const_idx + 2].calcCOPFromConstraints();
+                    const auto last_landing_point = constraints_list[cur_const_idx + 4].calcCOPFromConstraints();
+
+                    hrp::Vector3 next_ref_zmp = next_landing_point;
+                    next_ref_zmp[1] += (next_landing_point[1] < 0) ? y_offset : -y_offset;
+
+                    hrp::Vector3 last_ref_zmp = last_landing_point;
+                    last_ref_zmp[1] += (last_landing_point[1] < 0) ? y_offset : -y_offset;
+
+                    hrp::Vector3 target_cp = last_landing_point;
+                    // target_cp[0] += (last_landing_point[0] - next_landing_point[0] > 0) ? 0.1 : 0.0;
+                    // target_cp[1] += (landing_point[1] - support_point[1] > 0) ? -0.05 : 0.05;
+                    // target_cp_offset[0] = (one_step[0] + start_zmp_offset[0]) + (one_step[0] + start_zmp_offset[0] - end_zmp_offset[0]) / (omega * flight_time) - one_step[0];
+
+                    const size_t count_to_jump2 = constraints_list[cur_const_idx + 3].start_count - constraints_list[cur_const_idx + 2].start_count;
+
+                    // Memo:  [ms] 程度
+                    cog_gen->calcCogListForRun2Step(target_cp, ref_zmp, next_ref_zmp, last_ref_zmp,
+                                                    count_to_jump, count_to_jump2, cur_count,
+                                                    default_jump_height, default_jump_height,
+                                                    default_take_off_z, default_take_off_z, dt);
+                } else {
+                    std::cerr << "else" << std::endl;
+                    // const auto landing_point = constraints_list[cur_const_idx + 1].calcCOPFromConstraints();
+                    const auto landing_point = constraints_list[cur_const_idx].calcCOPFromConstraints();
+
+                    std::cerr << "landing point" << std::endl;
+                    hrp::Vector3 next_ref_zmp = landing_point;
+                    next_ref_zmp[1] += (landing_point[1] < 0) ? y_offset : -y_offset;
+                    std::cerr << "ref zmp" << std::endl;
+
+                    hrp::Vector3 target_cp = landing_point;
+                    target_cp[0] += (landing_point[0] - support_point[0] > 0) ? 0.1 : 0.0;
+                    std::cerr << "target cp" << std::endl;
+                    // target_cp[1] += (landing_point[1] - support_point[1] > 0) ? -0.05 : 0.05;
+                    // target_cp_offset[0] = (one_step[0] + start_zmp_offset[0]) + (one_step[0] + start_zmp_offset[0] - end_zmp_offset[0]) / (omega * flight_time) - one_step[0];
+                    std::cerr << "before cog_gen" << std::endl;
+                    // Memo: 0.03608 [ms] 程度
+                    cog_gen->calcCogListForRunLast(target_cp, ref_zmp, next_ref_zmp, count_to_jump, cur_count,
+                                                   default_jump_height, default_take_off_z, dt);
+                    std::cerr << "after cog_gen" << std::endl;
+                }
+            }
+
+            cog_gen->getCogFromCogList(cur_count, dt);
+            ref_zmp = cog_gen->calcPointMassZMP();
+        }
+
     }
 
     cog_moment = (if_compensate_cog_moment) ?
@@ -1023,20 +1127,84 @@ bool GaitGenerator::setRunningFootSteps(hrp::Vector3 footsteps_pos[],
 
     std::vector<size_t> jump_idx{1};
     std::vector<size_t> land_idx{0};
+    // std::vector<Eigen::Isometry3d> org_targets;
+    // for (const auto& constraint : constraints_list[cur_const_idx].constraints) {
+    //     org_targets.push_back(constraint.targetCoord());
+    // }
+
+    // std::vector<Eigen::Isometry3d> targets{org_targets[land_idx[0]]};
 
     std::vector<Eigen::Isometry3d> targets(1);
 
-    const double take_off_z_vel = std::sqrt(2 * g_acc * default_jump_height);
-    const size_t flight_phase_count = static_cast<size_t>(2 * take_off_z_vel / g_acc / dt);
+    // const double take_off_z_vel = std::sqrt(2 * g_acc * default_jump_height);
+    // const size_t flight_phase_count = static_cast<size_t>(2 * take_off_z_vel / g_acc / dt);
+    double take_off_z_vel = std::sqrt(2 * g_acc * default_jump_height);
+    size_t flight_phase_count = static_cast<size_t>(2 * take_off_z_vel / g_acc / dt);
+
+    {
+        targets[0].linear() = footsteps_rot[0].normalized().toRotationMatrix();
+        targets[0].translation().x() = footsteps_pos[0].x();
+        targets[0].translation().y() = footsteps_pos[0].y();
+        targets[0].translation().z() = footsteps_pos[0].z();
+        if (fs_side[0] == 1) {
+            std::swap(jump_idx[0], land_idx[0]);
+        }
+        const size_t starting_count = loop + 100;
+        const std::vector<ConstraintsWithCount> run_constraints = calcFootStepConstraintsForRun(new_constraints.back(),
+                                                                                                jump_idx,
+                                                                                                land_idx,
+                                                                                                targets,
+                                                                                                starting_count + default_support_count_run,
+                                                                                                flight_phase_count);
+                                                                                                // flight_phase_count,
+                                                                                                // true,
+                                                                                                // starting_count);
+    //     // const std::vector<ConstraintsWithCount> run_constraints = calcFootStepConstraintsForJump(constraints_list[cur_const_idx],
+    //     //                                                                                          targets,
+    //     //                                                                                          starting_count + default_support_count_run,
+    //     //                                                                                          flight_phase_count);
+        for (const auto& constraints : run_constraints) {
+            new_constraints.push_back(constraints);
+        }
+    //     std::swap(jump_idx[0], land_idx[0]);
+    //     targets[0] = org_targets[land_idx[0]];
+    //     // targets[0].translation()[0] += 0.2;
+    //     // targets[0].translation()[1] = org_targets[land_idx[0]].translation()[1];
+        std::cerr << "add run first" << std::endl;
+    }
+    std::cerr << "after first :: new_constraints.size() : " << new_constraints.size() << std::endl;
+
+    // {
+    //     targets[0].linear() = footsteps_rot[1].normalized().toRotationMatrix();
+    //     targets[0].translation().x() = footsteps_pos[1].x();
+    //     targets[0].translation().y() = footsteps_pos[1].y();
+    //     targets[0].translation().z() = footsteps_pos[1].z();
+    //     if (fs_side[0] == 1) {
+    //         std::swap(jump_idx[0], land_idx[0]);
+    //     }
+    //     const size_t starting_count = loop + 100;
+    //     const std::vector<ConstraintsWithCount> run_constraints = calcFootStepConstraintsForRun(new_constraints.back(),
+    //                                                                                             jump_idx,
+    //                                                                                             land_idx,
+    //                                                                                             targets,
+    //                                                                                             starting_count + default_support_count_run,
+    //                                                                                             flight_phase_count,
+    //                                                                                             true,
+    //                                                                                             starting_count);
+    //     for (const auto& constraints : run_constraints) {
+    //         new_constraints.push_back(constraints);
+    //     }
+    //     std::cerr << "add run first" << std::endl;
+    // }
 
     // footsteps
-    for (size_t i = 0; i < length; ++i) {
+    for (size_t i = 1; i < length-1; ++i) { // tmp
         if (i == 0 && fs_side[i] == 1) { // if first running step is left
             std::swap(jump_idx[0], land_idx[0]);
 
         }
         else if (i > 0) {
-            if(fs_side[i] != fs_side[i-1]) {
+            if (fs_side[i] != fs_side[i-1]) {
             std::swap(jump_idx[0], land_idx[0]);
             }
         }
@@ -1061,6 +1229,52 @@ bool GaitGenerator::setRunningFootSteps(hrp::Vector3 footsteps_pos[],
         std::cerr << "add run " << i << std::endl;
     }
 
+    { // final step // walk modeの場合設定足りてない？片足遊脚片足支持constraintsいる？
+        if (fs_side[length-2] != fs_side[length-1]) {
+            std::swap(jump_idx[0], land_idx[0]);
+        }
+
+        targets[0].linear() = footsteps_rot[length-1].normalized().toRotationMatrix();
+        targets[0].translation().x() = footsteps_pos[length-1].x();
+        targets[0].translation().y() = footsteps_pos[length-1].y();
+        targets[0].translation().z() = footsteps_pos[length-1].z();
+
+        new_constraints.push_back(new_constraints.back());
+        ConstraintsWithCount& final_constraints = new_constraints.back();
+        final_constraints.start_count += default_support_count_run;
+     //     final_constraints.start_count += default_single_support_count;
+        final_constraints.clearLimbViaPoints();
+        final_constraints.is_stable = true;
+        // new_contraints.push_back(final_constraints);
+
+        for (size_t i = 0; i < land_idx.size(); ++i) {
+            LinkConstraint& landing_constraint = final_constraints.constraints[land_idx[i]];
+            landing_constraint.changeDefaultContacts();
+            landing_constraint.targetCoord() = targets[i];
+            landing_constraint.setConstraintType(LinkConstraint::FIX);
+        }
+    }
+
+    // // tmp
+    // {
+    //     std::swap(jump_idx[0], land_idx[0]);
+    //     targets[0].translation().y() = -targets[0].translation().y();
+    //     default_jump_height = 0.01;
+    //     // default_jump_height = 0;
+    //     take_off_z_vel = std::sqrt(2 * g_acc * default_jump_height);
+    //     flight_phase_count = static_cast<size_t>(2 * take_off_z_vel / g_acc / dt);
+    //     const ConstraintsWithCount& last_constraints = new_constraints.back();
+    //     const std::vector<ConstraintsWithCount> run_constraints = calcFootStepConstraintsForRun(last_constraints,
+    //                                                                                             jump_idx,
+    //                                                                                             land_idx,
+    //                                                                                             targets,
+    //                                                                                             last_constraints.start_count + default_support_count_run,
+    //                                                                                             flight_phase_count);
+    //     for (const auto& constraints : run_constraints) {
+    //         new_constraints.push_back(constraints);
+    //     }
+    // }
+
     // Update constraints_list
     std::lock_guard<std::mutex> lock(m_mutex);
     // default_step_height = 0.15; // tmp
@@ -1070,6 +1284,7 @@ bool GaitGenerator::setRunningFootSteps(hrp::Vector3 footsteps_pos[],
     for (auto& constraints : new_constraints) {
         constraints.start_count += diff_count;
     }
+    std::cerr << "new_constraints.size() : " << new_constraints.size() << std::endl;
     setConstraintsList(std::move(new_constraints));
     setRefZMPList(loop);
     std::cerr << "add run end" << std::endl;
@@ -1098,10 +1313,12 @@ bool GaitGenerator::setJumpingFootSteps(const double dt,
     //     targets.push_back(constraint.targetCoord());
     // }
 
-    // running_mode = EXTENDED_MATRIX; // こいつが決定的か(run との違い)
+    running_mode = EXTENDED_MATRIX; // こいつが決定的か(run との違い)
 
     const double take_off_z_vel = std::sqrt(2 * g_acc * default_jump_height);
     const size_t flight_phase_count = static_cast<size_t>(2 * take_off_z_vel / g_acc / dt);
+
+    std::vector<Eigen::Isometry3d> last_targets;
 
     for (size_t i = 1; i < fs_side.size(); ++i) { // todo step数がなぜrunと異なる
         const ConstraintsWithCount& last_constraints = new_constraints.back();
@@ -1134,6 +1351,22 @@ bool GaitGenerator::setJumpingFootSteps(const double dt,
         }
 
         std::cerr << "add jump " << i << std::endl;
+        last_targets = targets;
+    }
+
+    {                           // なんでこれないと落ちる？
+        new_constraints.push_back(new_constraints.back());
+        ConstraintsWithCount& final_constraints = new_constraints.back();
+        final_constraints.start_count += default_support_count_run;
+        final_constraints.clearLimbViaPoints();
+        final_constraints.is_stable = true;
+
+        for (size_t i = 0; i < fs_side[fs_side.size()-1].size(); ++i) {
+            LinkConstraint& landing_constraint = final_constraints.constraints[fs_side[fs_side.size() - 1][i]];
+            landing_constraint.changeDefaultContacts();
+            landing_constraint.targetCoord() = last_targets[i];
+            landing_constraint.setConstraintType(LinkConstraint::FIX);
+        }
     }
 
     // Update constraints_list
@@ -1195,7 +1428,7 @@ bool GaitGenerator::startRunning(const double dt, const double g_acc)
         std::cerr << "add run first" << std::endl;
     }
 
-    for (size_t i = 0; i < 30; ++i) {
+    for (size_t i = 0; i < 2; ++i) {
         const ConstraintsWithCount& last_constraints = new_constraints.back();
         const std::vector<ConstraintsWithCount> run_constraints = calcFootStepConstraintsForRun(last_constraints,
                                                                                                 jump_idx,

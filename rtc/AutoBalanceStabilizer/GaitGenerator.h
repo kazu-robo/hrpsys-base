@@ -59,7 +59,8 @@ class GaitGenerator
 
     // Run parameter
     // double default_take_off_z = 0.85;
-    double default_take_off_z = 0.96;
+    // double default_take_off_z = 0.96; // default
+    double default_take_off_z = 1.0;
     // double default_jump_height = 0.005;
     // double default_jump_height = 0.03;
     double default_jump_height = 0.05;

@@ -156,6 +156,15 @@ class COGTrajectoryGenerator
                            const double take_off_z,
                            const double dt,
                            const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
+    void calcCogListForRunLast(const hrp::Vector3 target_cp,
+                           const hrp::Vector3 ref_zmp,
+                           const hrp::Vector3 next_ref_zmp,
+                           const size_t count_to_jump,
+                           const size_t cur_count,
+                           const double jump_height,
+                           const double take_off_z,
+                           const double dt,
+                           const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
 
     void calcCogListForRun2Step(const hrp::Vector3 target_cp,
                                 const hrp::Vector3 ref_zmp,

@@ -259,6 +259,128 @@ void COGTrajectoryGenerator::calcCogListForRun(const hrp::Vector3 target_cp,
     for (int i = 0; i < dim; ++i) cog_list[i][2] = std::get<0>(ref_cog_z_list[i]);
 }
 
+void COGTrajectoryGenerator::calcCogListForRunLast(const hrp::Vector3 target_cp,
+                                               const hrp::Vector3 ref_zmp,
+                                               const hrp::Vector3 next_ref_zmp,
+                                               const size_t count_to_jump,
+                                               const size_t cur_count,
+                                               const double jump_height,
+                                               const double take_off_z,
+                                               const double dt,
+                                               const double g_acc)
+{
+    cog_list_start_count = cur_count;
+    const std::vector<std::tuple<double, double, double>>
+        ref_cog_z_list = calcCogZListForJump(count_to_jump, 0, take_off_z, dt, g_acc);
+
+    const int dim = count_to_jump;
+    const int ref_dim = dim + 3;
+
+    std::vector<Eigen::Triplet<double>> A;
+    // Eigen::SparseMatrix<double> A(ref_dim, dim);
+    A.reserve(ref_dim * 3);
+
+    const double dt2 = dt * dt;
+
+    // x0 + dot{x0} * dt
+    A.emplace_back(0, 0, 1);
+    // A.insert(0, 0) = 1;
+
+    // p1 - a0 x0
+    double a_zero;
+    {
+        const double denominator = (std::get<2>(ref_cog_z_list[0]) + g_acc) * dt2;
+        const double cog_z = std::get<0>(ref_cog_z_list[0]);
+        a_zero = -cog_z / denominator;
+        // A.insert(1, 0) = 2 * cog_z / denominator + 1;
+        // A.insert(1, 1) = a_zero;
+        A.emplace_back(1, 0, 2 * cog_z / denominator + 1);
+        A.emplace_back(1, 1, a_zero);
+    }
+
+    for (int i = 1; i < dim - 1; ++i) {
+        const double denominator = (std::get<2>(ref_cog_z_list[i]) + g_acc) * dt2;
+        const double cog_z = std::get<0>(ref_cog_z_list[i]);
+        const double a = -cog_z / denominator;
+
+        // A.insert(i + 1, i - 1) = a;
+        // A.insert(i + 1, i)     = 2 * cog_z / denominator + 1;
+        // A.insert(i + 1, i + 1) = a;
+        A.emplace_back(i + 1, i - 1, a);
+        A.emplace_back(i + 1, i, 2 * cog_z / denominator + 1);
+        A.emplace_back(i + 1, i + 1, a);
+    }
+
+    // A.insert(dim, dim - 1) = 1;
+    A.emplace_back(dim, dim - 1, 1);
+
+    {
+        // Target CP
+        const double take_off_z_vel = std::sqrt(2 * g_acc * jump_height);
+        const double flight_time = 2 * take_off_z_vel / g_acc;
+        const double taking_off_omega = std::sqrt(g_acc / std::get<0>(ref_cog_z_list.back())); // TODO: 加速度考慮したい
+        const double target_coeff = -(flight_time * taking_off_omega + 1) / (taking_off_omega * dt);
+
+        // Next ref zmp
+        A.emplace_back(ref_dim - 2, dim - 2, -flight_time / dt);
+        A.emplace_back(ref_dim - 2, dim - 1, 1 + flight_time / dt);
+
+        // A.insert(ref_dim - 1, dim - 2) = target_coeff;
+        // A.insert(ref_dim - 1, dim - 1) = 1 - target_coeff;
+        A.emplace_back(ref_dim - 1, dim - 2, target_coeff);
+        A.emplace_back(ref_dim - 1, dim - 1, 1 - target_coeff);
+    }
+
+    Eigen::SparseMatrix<double> A_mat(ref_dim, dim);
+    A_mat.setFromTriplets(A.begin(), A.end());
+
+    Eigen::VectorXd W_sqrt(ref_dim);
+    // {
+    //     const int half_dim = ref_dim / 2;
+    //     const double first_weight = std::sqrt(1e-8);
+    //     const double max_weight = std::sqrt(1e-4);
+    //     const double diff_weight = max_weight - first_weight;
+    //     for (int i = 0; i < half_dim; ++i) W_sqrt[i] = first_weight + (diff_weight * i) / half_dim;
+    //     for (int i = half_dim; i < ref_dim; ++i) W_sqrt[i] = first_weight + (diff_weight * (ref_dim - i)) / half_dim;
+    // }
+
+    W_sqrt.setConstant(std::sqrt(2e-3));
+    W_sqrt[0] = std::sqrt(1e6);
+    W_sqrt[ref_dim - 2] = std::sqrt(1e-3);
+    W_sqrt[ref_dim - 1] = std::sqrt(1e6);
+    // std::cerr << A << std::endl;
+    // std::cerr << A_mat << std::endl;
+    // std::cerr << "A size: " << A.size() << std::endl;
+    Eigen::SparseQR<decltype(A_mat), Eigen::COLAMDOrdering<int>> qr_solver;
+    qr_solver.compute(W_sqrt.asDiagonal() * A_mat);
+    // qr_solver.compute(A);
+
+    if (qr_solver.info() != Eigen::Success) {
+        std::cerr << "decomposition failed" << std::endl;
+        return;
+    }
+
+    cog_list.resize(dim);
+    for (int xy = 0; xy <= 1; ++xy) {
+        Eigen::VectorXd ref_vec(ref_dim);
+        ref_vec.setConstant(ref_zmp[xy]);
+        ref_vec[0] = cog[xy] + cog_vel[xy] * dt;
+        ref_vec[1] -= a_zero * cog[xy];
+        // ref_vec[0] -= a_zero * cog[xy];
+        ref_vec[ref_dim - 2] = next_ref_zmp[xy];
+        ref_vec[ref_dim - 1] = target_cp[xy];
+
+        const Eigen::VectorXd ref_cog_list = qr_solver.solve(ref_vec.cwiseProduct(W_sqrt));
+        if (qr_solver.info() != Eigen::Success) {
+            std::cerr << "solving failed" << std::endl;
+            return;
+        }
+        for (int i = 0; i < dim; ++i) cog_list[i][xy] = ref_cog_list[i];
+    }
+
+    for (int i = 0; i < dim; ++i) cog_list[i][2] = std::get<0>(ref_cog_z_list[i]);
+}
+
 void COGTrajectoryGenerator::calcCogListForRun2Step(const hrp::Vector3 target_cp,
                                                     const hrp::Vector3 ref_zmp,
                                                     const hrp::Vector3 next_ref_zmp,
