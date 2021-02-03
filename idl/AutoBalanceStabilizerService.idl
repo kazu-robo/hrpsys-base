@@ -598,6 +598,8 @@ module OpenHRP
     void setUseToeHeel(in boolean use_toe_heel);
     void setToeKickAngle(in double angle_rad);
     void setHeelContactAngle(in double angle_rad);
+    void setDefaultTakeOffZ(in double take_off_z);
+    void setDefaultJumpHeight(in double jump_height);
     boolean setToeContactPoints(in long link_id, in DblSeq3Seq contact_points);
     boolean setHeelContactPoints(in long link_id, in DblSeq3Seq contact_points);
     void setWalkingMode(in WalkingMode mode);

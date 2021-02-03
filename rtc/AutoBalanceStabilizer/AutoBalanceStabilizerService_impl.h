@@ -32,6 +32,9 @@ class AutoBalanceStabilizerService_impl
     void setUseToeHeel(const CORBA::Boolean use_toe_heel);
     void setToeKickAngle(const CORBA::Double angle_rad);
     void setHeelContactAngle(const CORBA::Double angle_rad);
+    void setDefaultTakeOffZ(const CORBA::Double take_off_z);
+    void setDefaultJumpHeight(const CORBA::Double jump_height);
+    // void setDefaultSupportCountRun(const CORBA::Double count);time?
     CORBA::Boolean setToeContactPoints(const CORBA::Long link_id, const OpenHRP::AutoBalanceStabilizerService::DblSeq3Seq& contact_points);
     CORBA::Boolean setHeelContactPoints(const CORBA::Long link_id, const OpenHRP::AutoBalanceStabilizerService::DblSeq3Seq& contact_points);
 

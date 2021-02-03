@@ -58,6 +58,16 @@ void AutoBalanceStabilizerService_impl::setHeelContactAngle(const CORBA::Double 
     m_autobalancestabilizer->setHeelContactAngle(hrp::deg2rad(angle_deg));
 }
 
+void AutoBalanceStabilizerService_impl::setDefaultTakeOffZ(const CORBA::Double take_off_z)
+{
+    m_autobalancestabilizer->setDefaultTakeOffZ(take_off_z);
+}
+
+void AutoBalanceStabilizerService_impl::setDefaultJumpHeight(const CORBA::Double jump_height)
+{
+    m_autobalancestabilizer->setDefaultJumpHeight(jump_height);
+}
+
 CORBA::Boolean AutoBalanceStabilizerService_impl::setToeContactPoints(const CORBA::Long link_id, const OpenHRP::AutoBalanceStabilizerService::DblSeq3Seq& contact_points)
 {
     std::vector<hrp::Vector3> points(contact_points.length());

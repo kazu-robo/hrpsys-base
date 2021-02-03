@@ -94,6 +94,8 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     void setUseToeHeel(const bool use_toe_heel)      { gg->setUseToeHeel(use_toe_heel); }
     void setToeKickAngle(const double angle_rad)     { gg->setToeKickAngle(angle_rad); }
     void setHeelContactAngle(const double angle_rad) { gg->setHeelContactAngle(angle_rad); }
+    void setDefaultTakeOffZ(const double take_off_z) { gg->setDefaultTakeOffZ(take_off_z); }
+    void setDefaultJumpHeight(const double jump_height) { gg->setDefaultJumpHeight(jump_height); }
     bool setToeContactPoints(const int link_id, const std::vector<hrp::Vector3>& contact_points)
     {
         return gg->setToeContactPoints(link_id, contact_points);
