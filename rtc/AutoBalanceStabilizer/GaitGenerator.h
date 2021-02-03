@@ -59,11 +59,12 @@ class GaitGenerator
 
     // Run parameter
     // double default_take_off_z = 0.85;
-    // double default_take_off_z = 0.96; // default
-    double default_take_off_z = 1.0;
+    double default_take_off_z = 0.96; // default
+    // double default_take_off_z = 1.0;
     // double default_jump_height = 0.005;
     // double default_jump_height = 0.03;
-    double default_jump_height = 0.05;
+    double default_jump_height = 0.05; // default
+    // double default_jump_height = 0.01;
     double default_support_count_run;
 
     std::vector<std::pair<hrp::Vector3, size_t>> ref_zmp_goals;
