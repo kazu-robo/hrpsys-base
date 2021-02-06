@@ -15,6 +15,8 @@
 
 namespace hrp {
 
+#define DEBUGP ((m_debugLevel==1 && loop%200==0) || m_debugLevel > 1 )
+
 GaitGenerator::GaitGenerator(const hrp::BodyPtr& _robot,
                              std::mutex& _mutex,
                              const double _dt,
@@ -154,16 +156,16 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
     // if (is_flight) ref_zmp = cog_gen->calcCogForFlightPhase(dt);
     if (is_flight) {
         ref_zmp = cog_gen->calcCogForFlightPhase(dt);
-        std::cerr << "is_flight" << std::endl;
+        if (DEBUGP) std::cerr << "is_flight" << std::endl;
     }
     else if (!next_flight && !last_flight) {
         // if (walking_mode == PREVIEW_CONTROL) cog_gen->calcCogFromZMP(zmp_gen->getRefZMPList(), dt);
         if (walking_mode == PREVIEW_CONTROL) {
             cog_gen->calcCogFromZMP(zmp_gen->getRefZMPList(), dt);
-            std::cerr << "preview_control" << std::endl;
+            if (DEBUGP) std::cerr << "preview_control" << std::endl;
         }
         else if (walking_mode == FOOT_GUIDED_WALK) {
-            std::cerr << "foot_guided_walk" << std::endl;
+            if (DEBUGP) std::cerr << "foot_guided_walk" << std::endl;
             if (cur_count == constraints_list[cur_const_idx].start_count &&
                 constraints_list[cur_const_idx].is_stable) {
                 // TODO: 空中をなんとかしてforward timestepにいれる
@@ -181,7 +183,7 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
     } else if (cur_const_idx < constraints_list.size() - 2) {
         const size_t count_to_jump = constraints_list[cur_const_idx + 1].start_count - cur_count;
         if (running_mode == FOOT_GUIDED_RUN) {
-            std::cerr << "foot_guided_run" << std::endl;
+            if (DEBUGP) std::cerr << "foot_guided_run" << std::endl;
             // const std::vector<size_t> land_indices = constraints_list[cur_const_idx + 2].getConstraintIndicesFromType(LinkConstraint::FIX);
             // const auto support_point = constraints_list[cur_const_idx].constraints[sup_indices[0]].targetPos();
             // const auto landing_point = constraints_list[cur_const_idx + 2].constraints[land_indices[0]].targetPos();
@@ -205,7 +207,7 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
                                                  COGTrajectoryGenerator::FIX);
             cog_gen->calcCogZForJump(count_to_jump, default_jump_height, default_take_off_z, dt);
         } else if (running_mode == EXTENDED_MATRIX) {
-            std::cerr << "extended_matrix" << std::endl;
+            if (DEBUGP) std::cerr << "extended_matrix" << std::endl;
             if (cur_count == constraints_list[cur_const_idx].start_count) {
                 const auto support_point = constraints_list[cur_const_idx].calcCOPFromConstraints();
                 ref_zmp = support_point;
@@ -262,7 +264,7 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
     else {
         const size_t count_to_jump = constraints_list[cur_const_idx + 1].start_count - cur_count;
         if (running_mode == FOOT_GUIDED_RUN) {
-            std::cerr << "foot_guided_run" << std::endl;
+            if (DEBUGP) std::cerr << "foot_guided_run LAST" << std::endl;
             // const std::vector<size_t> land_indices = constraints_list[cur_const_idx + 2].getConstraintIndicesFromType(LinkConstraint::FIX);
             // const auto support_point = constraints_list[cur_const_idx].constraints[sup_indices[0]].targetPos();
             // const auto landing_point = constraints_list[cur_const_idx + 2].constraints[land_indices[0]].targetPos();
@@ -286,7 +288,7 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
                                                  COGTrajectoryGenerator::FIX);
             cog_gen->calcCogZForJump(count_to_jump, default_jump_height, default_take_off_z, dt);
         } else if (running_mode == EXTENDED_MATRIX) {
-            std::cerr << "extended_matrix landing step" << std::endl;
+            if (DEBUGP) std::cerr << "extended_matrix landing step" << std::endl;
             if (cur_count == constraints_list[cur_const_idx].start_count) {
                 const auto support_point = constraints_list[cur_const_idx].calcCOPFromConstraints();
                 ref_zmp = support_point;
@@ -320,25 +322,19 @@ void GaitGenerator::calcCogAndLimbTrajectory(const size_t cur_count, const doubl
                                                     default_jump_height, default_jump_height,
                                                     default_take_off_z, default_take_off_z, dt);
                 } else {
-                    std::cerr << "else" << std::endl;
                     // const auto landing_point = constraints_list[cur_const_idx + 1].calcCOPFromConstraints();
                     const auto landing_point = constraints_list[cur_const_idx].calcCOPFromConstraints();
 
-                    std::cerr << "landing point" << std::endl;
                     hrp::Vector3 next_ref_zmp = landing_point;
                     next_ref_zmp[1] += (landing_point[1] < 0) ? y_offset : -y_offset;
-                    std::cerr << "ref zmp" << std::endl;
 
                     hrp::Vector3 target_cp = landing_point;
                     target_cp[0] += (landing_point[0] - support_point[0] > 0) ? 0.1 : 0.0;
-                    std::cerr << "target cp" << std::endl;
                     // target_cp[1] += (landing_point[1] - support_point[1] > 0) ? -0.05 : 0.05;
                     // target_cp_offset[0] = (one_step[0] + start_zmp_offset[0]) + (one_step[0] + start_zmp_offset[0] - end_zmp_offset[0]) / (omega * flight_time) - one_step[0];
-                    std::cerr << "before cog_gen" << std::endl;
                     // Memo: 0.03608 [ms] 程度
                     cog_gen->calcCogListForRunLast(target_cp, ref_zmp, next_ref_zmp, count_to_jump, cur_count,
                                                    default_jump_height, default_take_off_z, dt);
-                    std::cerr << "after cog_gen" << std::endl;
                 }
             }
 

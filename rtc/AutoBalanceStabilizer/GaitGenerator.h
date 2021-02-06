@@ -42,6 +42,8 @@ class GaitGenerator
     bool if_compensate_cog_moment = true;
     hrp::Vector3 cog_moment = hrp::Vector3::Zero();
 
+    unsigned int m_debugLevel = 0;
+
     LocomotionMode locomotion_mode = WALK;
     WalkingMode walking_mode = FOOT_GUIDED_WALK;
     RunningMode running_mode = FOOT_GUIDED_RUN;
@@ -60,11 +62,10 @@ class GaitGenerator
     // Run parameter
     // double default_take_off_z = 0.85;
     double default_take_off_z = 0.96; // default
-    // double default_take_off_z = 1.0;
+    // double default_take_off_z = 1.05;
     // double default_jump_height = 0.005;
     // double default_jump_height = 0.03;
     double default_jump_height = 0.05; // default
-    // double default_jump_height = 0.01;
     double default_support_count_run;
 
     std::vector<std::pair<hrp::Vector3, size_t>> ref_zmp_goals;
@@ -263,6 +264,7 @@ class GaitGenerator
                                  const double max_step_length, const double max_rotate_angle /*[rad]*/,
                                  const int support_id, const int swing_id);
 
+    void setDebugLevel(const unsigned int _m_debugLevel) { m_debugLevel = _m_debugLevel; }
 
     /* Service below */
     std::vector<int> getConstraintLinkIds();
@@ -273,10 +275,6 @@ class GaitGenerator
     void setDefaultStepHeight(const double height)   { default_step_height = height; }
     void setMaxStride(const double stride)           { max_stride = stride; }
     void setMaxRotAngle(const double angle_rad)      { max_rot_angle = angle_rad; }
-
-    void setUseToeHeel(const bool use_toe_heel)      { default_use_toe_heel = use_toe_heel; }
-    void setToeKickAngle(const double angle_rad)     { toe_kick_angle = angle_rad; }
-    void setHeelContactAngle(const double angle_rad) { heel_contact_angle = angle_rad; }
     void setDefaultTakeOffZ(const double take_off_z) {
         default_take_off_z = take_off_z;
         std::cerr << "[ABST gg] default_take_off_z is set to : " << default_take_off_z << std::endl;
@@ -285,6 +283,10 @@ class GaitGenerator
         default_jump_height = jump_height;
         std::cerr << "[ABST gg] default_jump_height is set to : " << default_jump_height << std::endl;
     }
+
+    void setUseToeHeel(const bool use_toe_heel)      { default_use_toe_heel = use_toe_heel; }
+    void setToeKickAngle(const double angle_rad)     { toe_kick_angle = angle_rad; }
+    void setHeelContactAngle(const double angle_rad) { heel_contact_angle = angle_rad; }
     bool setToeContactPoints(const int link_id, const std::vector<hrp::Vector3>& contact_points);
     bool setHeelContactPoints(const int link_id, const std::vector<hrp::Vector3>& contact_points);
     // void setGaitGeneratorParam(); // TODO: 作るかも

@@ -361,6 +361,8 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
     readInportData();
     updateBodyParams();
 
+    gg->setDebugLevel(m_debugLevel);
+
     if (control_mode != MODE_IDLE) {
         // adjustCOPCoordToTarget();
 
@@ -1609,7 +1611,6 @@ bool AutoBalanceStabilizer::setJumpingFootSteps(const OpenHRP::AutoBalanceStabil
         return false;
     }
 
-    std::cerr << "go through if" << std::endl;
     // TODO biped only
 
     const hrp::ConstraintsWithCount& cur_constraints = gg->getCurrentConstraints(loop);
@@ -1625,9 +1626,7 @@ bool AutoBalanceStabilizer::setJumpingFootSteps(const OpenHRP::AutoBalanceStabil
     std::vector<int> swing_link_cycle{31, 25};
 
     int length = fss.length();
-    std::cerr << "length :" << length << std::endl;
     std::vector<int> fs_num(length);
-    std::cerr << "before fs_num" << std::endl;
     for (size_t i = 0; i < length; ++i) {
         fs_num[i] = fss[i].fs.length();
         std::cerr << "fs_num[" << i << "] : " << fs_num[i] << std::endl;
@@ -1640,24 +1639,20 @@ bool AutoBalanceStabilizer::setJumpingFootSteps(const OpenHRP::AutoBalanceStabil
     std::vector<std::vector<Eigen::Quaterniond> > footsteps_rot(length);
     std::vector<std::vector<int> > fs_side(length);        // 0->右 1->左
     std::string side;
-    std::cerr << "before for" << std::endl;
 
     for (size_t i = 0; i < length; ++i){ // todo fsに足の数以上のfootstepが入ってたらfalseにする
         for (size_t j = 0; j < fs_num[i]; ++j){
             side = fss[i].fs[j].leg;
             if (side == "rleg") {
-                // fs_side[i][j] = 0;
                 fs_side[i].push_back(0);
             }
             else if (side == "lleg") {
-                // fs_side[i][j] = 1;
                 fs_side[i].push_back(1);
             }
             else {
                 std::cerr << "[" << m_profile.instance_name << "] footstep leg is not lleg or rleg" << std::endl; // biped only
                 return false;
             }
-            std::cerr << "leg is ok" << std::endl;
             footstep_pos.x() = fss[i].fs[j].pos[0];
             footstep_pos.y() = fss[i].fs[j].pos[1];
             footstep_pos.z() = fss[i].fs[j].pos[2];
@@ -1665,7 +1660,6 @@ bool AutoBalanceStabilizer::setJumpingFootSteps(const OpenHRP::AutoBalanceStabil
             footstep_q.x() = fss[i].fs[j].rot[1];
             footstep_q.y() = fss[i].fs[j].rot[2];
             footstep_q.z() = fss[i].fs[j].rot[3]; // この辺まででなんかやらかしてそう
-            std::cerr << "dainyu is ok" << std::endl;
 
             footstep_coord.translation() = start_coord.translation() + start_coord.linear() * footstep_pos; // zがあるとき怪しい？start_coordでyaw軸以外の回転があった場合も
             footstep_coord.linear() = start_coord.linear() * footstep_q.normalized().toRotationMatrix();
