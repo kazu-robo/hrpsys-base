@@ -7,7 +7,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 set(comp_sources AutoBalanceStabilizer.cpp AutoBalanceStabilizerService_impl.cpp ../SequencePlayer/interpolator.cpp ../TorqueFilter/IIRFilter.cpp)
 set(libs hrpModel-3.1 hrpCollision-3.1 hrpUtil-3.1 hrpsysBaseStub)
-set(abst_libs EigenUtil LinkConstraint GaitGenerator Stabilizer)
+set(abst_libs EigenUtil LinkConstraint GaitGenerator Stabilizer StateEstimator)
 
 include_directories(${PROJECT_SOURCE_DIR}/rtc/SequencePlayer)
 
@@ -60,7 +60,7 @@ target_link_libraries(testZMPDistributorABS ${libs})
 # add_test(testZMPDistributor_JAXONRED_EEFMQPCOP_Test2 testZMPDistributorABS --jaxon_red --test2 --use-gnuplot false --distribution-algorithm EEFMQPCOP)
 
 # set(target AutoBalanceStabilizer AutoBalanceStabilizerComp EigenUtil LinkConstraint GaitGenerator Stabilizer testRefZMPGenerator testLimbTrajectoryGenerator testCOGTrajectoryGenerator testTwoDofControllerABS testZMPDistributorABS)
-set(target AutoBalanceStabilizer AutoBalanceStabilizerComp EigenUtil LinkConstraint GaitGenerator Stabilizer testRefZMPGenerator testLimbTrajectoryGenerator testTwoDofControllerABS testZMPDistributorABS)
+set(target AutoBalanceStabilizer AutoBalanceStabilizerComp EigenUtil LinkConstraint GaitGenerator Stabilizer StateEstimator testRefZMPGenerator testLimbTrajectoryGenerator testTwoDofControllerABS testZMPDistributorABS)
 
 install(TARGETS ${target}
   RUNTIME DESTINATION bin
