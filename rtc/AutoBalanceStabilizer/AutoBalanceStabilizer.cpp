@@ -325,7 +325,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
     additional_force_applied_point_offset = hrp::Vector3::Zero();
 
     m_act_robot = boost::make_shared<hrp::Body>(*m_robot);
-    act_se = std::make_unique<hrp::StateEstimator>(m_act_robot, std::string(m_profile.instance_name) + "_SE", m_dt, m_mutex, contacts_link_indices);
+    act_se = std::make_unique<hrp::StateEstimator>(m_act_robot, std::string(m_profile.instance_name) + "_SE", m_dt, m_mutex);
 
     return RTC::RTC_OK;
 }
@@ -947,7 +947,7 @@ void AutoBalanceStabilizer::updateBodyParams()
     copyJointAnglesToRobotModel(m_act_robot, q_act);
     const hrp::Sensor* const gyro = m_act_robot->sensor<hrp::RateGyroSensor>("gyrometer");
     const hrp::Matrix33 gyro_R = gyro->link->R * gyro->localR;
-    m_act_robot->rootLink()->p = m_robot->rootLink()->p; // actの原点位置は0でなくrefと同じになった
+    m_act_robot->rootLink()->p = ref_base_pos; // actの原点位置は0でなくrefと同じになった
     m_act_robot->rootLink()->R = hrp::rotFromRpy(act_rpy) * (gyro_R.transpose() * m_act_robot->rootLink()->R);
     m_act_robot->calcForwardKinematics();
 }
