@@ -32,6 +32,7 @@
 #include "FullbodyInverseKinematicsSolver.h"
 #include "GaitGenerator.h"
 #include "Stabilizer.h"
+#include "StateEstimator.h"
 // Service implementation headers
 // <rtc-template block="service_impl_h">
 #include "AutoBalanceStabilizerService_impl.h"
@@ -388,6 +389,9 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     std::vector<double> control_swing_support_time; // TODO: delete
 
     std::unique_ptr<hrp::Stabilizer> st;
+
+    // for se
+    std::unique_ptr<hrp::StateEstimator> act_se;
 
     // for gg
     std::unique_ptr<hrp::GaitGenerator> gg;
