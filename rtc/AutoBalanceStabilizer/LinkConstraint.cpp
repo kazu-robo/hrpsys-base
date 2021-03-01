@@ -156,6 +156,44 @@ hrp::Matrix33 ConstraintsWithCount::calcCOPRotationFromConstraints(const LinkCon
     return cop_quat.toRotationMatrix();
 }
 
+Eigen::Isometry3d ConstraintsWithCount::calcFootOriginCoord(const hrp::BodyPtr& _robot, const hrp::Vector3& n) const
+{
+    Eigen::Isometry3d coord = Eigen::Isometry3d::Identity();
+    Eigen::Quaternion<double> orig_quat = Eigen::Quaternion<double>::Identity();
+    double sum_weight = 0;
+    constexpr double EPS = 1e-6;
+    for (const auto& constraint : constraints) {
+        const int link_id = constraint.getLinkId();
+        const double weight = constraint.getCOPWeight();
+        if (constraint.getConstraintType() >= LinkConstraint::FLOAT || weight < EPS /* to avoid zero division */) continue;
+        const hrp::Link* const target = dynamic_cast<hrp::Link*>(_robot->link(link_id));
+        sum_weight += weight;
+
+        // pos
+        coord.translation() += constraint.calcActualTargetPosFromLinkState(target->p, target->R) * weight;
+
+        // rot
+        const Eigen::Quaternion<double> foot_quat(constraint.calcActualTargetRotFromLinkState(target->R));
+        orig_quat = orig_quat.slerp(weight / sum_weight, foot_quat);
+    }
+    if (sum_weight > 0) coord.translation() /= sum_weight;
+    coord.linear() = orig_quat.toRotationMatrix();
+
+    { // align x-axis to en
+        hrp::Vector3 en = n / n.norm();
+        const hrp::Vector3 ex = hrp::Vector3::UnitX();
+        hrp::Vector3 xv1(coord.linear() * ex);
+        xv1 = xv1 - xv1.dot(en) * en;
+        xv1.normalize();
+        hrp::Vector3 yv1(en.cross(xv1));
+        coord.linear()(0,0) = xv1(0); coord.linear()(1,0) = xv1(1); coord.linear()(2,0) = xv1(2);
+        coord.linear()(0,1) = yv1(0); coord.linear()(1,1) = yv1(1); coord.linear()(2,1) = yv1(2);
+        coord.linear()(0,2) = en(0);  coord.linear()(1,2) = en(1);  coord.linear()(2,2) = en(2);
+    }
+
+    return coord;
+}
+
 int ConstraintsWithCount::getConstraintIndexFromLinkId(const int id) const
 {
     for (size_t idx = 0; idx < constraints.size(); ++idx) {
