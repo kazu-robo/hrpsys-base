@@ -671,8 +671,11 @@ hrp::Vector3 COGTrajectoryGenerator::calcFootGuidedCogWalk(const std::vector<Con
     const_remain_time = (ref_zmp_goals[next_zmp_idx].second - std::min(cur_count, ref_zmp_goals[next_zmp_idx].second)) * dt;
     if (landing_idx == cur_const_idx) {
         constexpr double PREVIEW_TIME = 1.6;
-        if (ref_zmp_goals[next_zmp_idx].second > cur_count) step_remain_time = const_remain_time;
-        else step_remain_time = const_remain_time = PREVIEW_TIME;
+        if (ref_zmp_goals[cur_zmp_idx + 1].second > cur_count) step_remain_time = const_remain_time;
+        else {
+            step_remain_time = const_remain_time = PREVIEW_TIME;
+            is_walking = false;
+        }
     }
 
     if (ref_zmp_goals[next_zmp_idx].second != ref_zmp_goals[cur_zmp_idx].second) {

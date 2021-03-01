@@ -165,6 +165,9 @@ class GaitGenerator
     const hrp::Vector3& getNewRefCP() const { return cog_gen->getNewRefCP(); }
     const double& getStepRemainTime() const { return cog_gen->getStepRemainTime(); }
     const double& getConstRemainTime() const { return cog_gen->getConstRemainTime(); }
+    const bool getWalkingState() { return cog_gen->getWalkingState(); };
+
+    void setWalkingState(const bool _walking) { cog_gen->setWalkingState(_walking); };
 
     // Todo: Private ?
     hrp::Vector3 calcReferenceCOPFromModel(const hrp::BodyPtr& _robot, const std::vector<LinkConstraint>& cur_consts) const;

@@ -48,6 +48,8 @@ class COGTrajectoryGenerator
     CogCalculationType calculation_type = PREVIEW_CONTROL;
     std::unique_ptr<ExtendedPreviewController> preview_controller;
 
+    bool is_walking = false;
+
     void updateCogState(const hrp::Vector3& input_zmp, const double dt, const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
 
     // Foot guided run variables
@@ -79,6 +81,8 @@ class COGTrajectoryGenerator
     const double& getStepRemainTime() const { return step_remain_time; }
     const double& getConstRemainTime() const { return const_remain_time; }
     const double getRefCogZ() const { return ref_cog_z; }
+    const bool getWalkingState() { return is_walking; };
+    void setWalkingState(const bool _walking) { is_walking = _walking; };
     hrp::Vector3 calcCP(const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION) const { return cog + cog_vel / omega; }
     hrp::Vector3 calcPointMassZMP(const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION) const
     {
