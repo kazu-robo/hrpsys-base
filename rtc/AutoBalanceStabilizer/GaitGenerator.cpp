@@ -1363,4 +1363,14 @@ bool GaitGenerator::startJumping(const double dt, const double g_acc)
     std::cerr << "add jump end" << std::endl;
 }
 
+void GaitGenerator::setConstraintToFootCoord(const hrp::BodyPtr& _robot)
+{
+    auto& cur_constraints = constraints_list.back().constraints;
+    for (auto& constraint : cur_constraints) {
+        const hrp::Link* const link = _robot->link(constraint.getLinkId());
+        constraint.targetPos() = constraint.calcActualTargetPosFromLinkState(link->p, link->R);
+        constraint.targetRot() = constraint.calcActualTargetRotFromLinkState(link->R);
+    }
+}
+
 }

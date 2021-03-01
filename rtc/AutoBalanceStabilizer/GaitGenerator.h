@@ -331,6 +331,8 @@ class GaitGenerator
     bool startJumping(const double dt, const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
     bool startRunJumpDemo(const double dt, const double g_acc = DEFAULT_GRAVITATIONAL_ACCELERATION);
 
+    void setConstraintToFootCoord(const hrp::BodyPtr& _robot);
+
     // gopos: 接触のCycleを記述したい
     // void goPos(const rats::coordinates& target, const size_t one_step_count,
     //            const double max_step_length, const double max_rotate_angle,
