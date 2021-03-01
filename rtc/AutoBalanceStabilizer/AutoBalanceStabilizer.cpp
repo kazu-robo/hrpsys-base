@@ -325,7 +325,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
     additional_force_applied_point_offset = hrp::Vector3::Zero();
 
     m_act_robot = boost::make_shared<hrp::Body>(*m_robot);
-    act_se = std::make_unique<hrp::StateEstimator>(m_act_robot, std::string(m_profile.instance_name) + "_SE", m_dt, m_mutex);
+    act_se = std::make_unique<hrp::StateEstimator>(m_act_robot, std::string(m_profile.instance_name) + "_SE", m_dt, m_mutex, contacts_link_indices);
 
     return RTC::RTC_OK;
 }
@@ -364,6 +364,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
     readInportData();
     updateBodyParams();
     if(!gg_is_walking) gg->setConstraintToFootCoord(m_robot);
+    act_se->calcStates(hrp::stateInputData{q_act, act_rpy, act_wrenches, gg->getCurrentConstraints(loop), ref_zmp(2)});
 
     gg->setDebugLevel(m_debugLevel);
 
@@ -948,16 +949,6 @@ void AutoBalanceStabilizer::updateBodyParams()
     m_act_robot->rootLink()->p = ref_base_pos; // actの原点位置は0でなくrefと同じになった
     m_act_robot->rootLink()->R = hrp::rotFromRpy(act_rpy) * (gyro_R.transpose() * m_act_robot->rootLink()->R);
     m_act_robot->calcForwardKinematics();
-}
-
-void AutoBalanceStabilizer::fixLegToCoords()
-{
-    const auto& cur_constraints = gg->getCurrentConstraints(loop);
-    const Eigen::Isometry3d constraint_origin_coord = cur_constraints.calcCOPOriginCoord();
-    const Eigen::Isometry3d foot_origin_coord = cur_constraints.calcFootOriginCoord(m_robot);
-    m_robot->rootLink()->p = constraint_origin_coord * foot_origin_coord.inverse() * m_robot->rootLink()->p;
-    m_robot->rootLink()->R = constraint_origin_coord.linear() * foot_origin_coord.linear().transpose() * m_robot->rootLink()->R;
-    m_robot->calcForwardKinematics();
 }
 
 std::vector<hrp::LinkConstraint> AutoBalanceStabilizer::readContactPointsFromProps(const RTC::Properties& prop, std::vector<int>& contacts_link_indices)

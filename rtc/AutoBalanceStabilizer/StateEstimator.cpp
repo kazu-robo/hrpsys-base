@@ -21,6 +21,19 @@ StateEstimator::StateEstimator(const hrp::BodyPtr& _robot, const std::string& _c
     for (const auto& id : link_indices) {
         limb_param.emplace(id, limbParam());
     }
+}
+
+void StateEstimator::calcStates(const stateInputData& input_data)
+{
+}
+
+hrp::Vector3 calcActZMP(const hrp::BodyPtr& act_robot,
+                        const std::vector<LinkConstraint>& constraints,
+                        const double zmp_z)
+{
+    for (const auto& id : link_indices) {
+        limb_param.emplace(id, limbParam());
+    }
 
     cogvel_filter = std::make_unique<FirstOrderLowPassFilter<hrp::Vector3>>(4.0, dt, hrp::Vector3::Zero()); // 4.0 Hz
 }
@@ -83,54 +96,45 @@ void StateEstimator::calcStates(const stateInputData& input_data)
     prev_on_ground = on_ground;
 }
 
-bool StateEstimator::calcZMP(hrp::Vector3& ret_zmp, const hrp::ConstraintsWithCount& constraints, const double zmp_z)
-{
-    // TODO: rename
-    double tmp_zmpx = 0;
-    double tmp_zmpy = 0;
-    double tmp_fz = 0;
-    double tmp_filterd_fz = 0.0;
+// hrp::Vector3 StateEstimator::calcCOPFromRobotState(const hrp::BodyPtr& act_robot,
+//                                    const std::vector<LinkConstraint>& constraints,
+//                                    const LinkConstraint::ConstraintType type_thre)
+// {
+//     hrp::Vector3 cop_pos = hrp::Vector3::Zero();
+//     double sum_weight = 0;
 
-    for (const auto& constraint : constraints.constraints) {
-        const int link_id = constraint.getLinkId();
-        if (!constraint.isZmpCalcTarget()) continue;
-        if (m_robot->link(link_id)->sensors.size() == 0) continue; // TODO: 無い場合トルク推定?
-        const hrp::ForceSensor* const sensor = dynamic_cast<hrp::ForceSensor*>(m_robot->link(link_id)->sensors[0]);
-        if (!sensor) continue;
+//     for (const LinkConstraint& constraint : constraints) {
+//         if (constraint.getConstraintType() >= type_thre || !constraint.isZmpCalcTarget()) continue;
+//         const double weight = constraint.getCOPWeight();
+//         const hrp::Link* const target = act_robot->link(constraint.getLinkId());
+//         cop_pos += constraint.calcActualTargetPosFromLinkState(target->p, target->R) * weight;
+//         sum_weight += weight;
+//     }
+//     if (sum_weight > 0) cop_pos /= sum_weight;
 
-        const hrp::Matrix33 sensor_R = sensor->link->R * sensor->localR;
-        hrp::Vector3 nf = sensor_R * sensor->f;
-        hrp::Vector3 nm = sensor_R * sensor->tau;
-        const hrp::Vector3 sensor_p = sensor->link->p + sensor->link->R * sensor->localPos;
-        tmp_zmpx += nf(2) * sensor_p(0) - (sensor_p(2) - zmp_z) * nf(0) - nm(1);
-        tmp_zmpy += nf(2) * sensor_p(1) - (sensor_p(2) - zmp_z) * nf(1) + nm(0);
-        tmp_fz += nf(2);
+//     return cop_pos;
+// }
 
-        // calc ee-local COP
-        const hrp::Link* const target = dynamic_cast<hrp::Link*>(m_robot->link(link_id));
-        const hrp::Matrix33 ee_R =  constraint.calcActualTargetRotFromLinkState(target->R);
-        const hrp::Vector3 ee_frame_senspor_p = ee_R.transpose() * (sensor_p - constraint.calcActualTargetPosFromLinkState(target->p, target->R)); // ee-local force sensor pos
-        nf = ee_R.transpose() * nf;
-        nm = ee_R.transpose() * nm;
-        // ee-local total moment and total force at ee position
-        const double tmp_cop_mx = nf(2) * ee_frame_senspor_p(1) - nf(1) * ee_frame_senspor_p(2) + nm(0);
-        const double tmp_cop_my = nf(2) * ee_frame_senspor_p(0) - nf(0) * ee_frame_senspor_p(2) - nm(1);
-        const double tmp_cop_fz = nf(2);
-        limb_param[link_id].contact_cop_info[0] = tmp_cop_mx;
-        limb_param[link_id].contact_cop_info[1] = tmp_cop_my;
-        limb_param[link_id].contact_cop_info[2] = tmp_cop_fz;
+// hrp::Matrix33 StateEstimator::calcCOPRotationFromRobotState(const hrp::BodyPtr& act_robot,
+//                                             const std::vector<LinkConstraint>& constraints,
+//                                             const LinkConstraint::ConstraintType type_thre)
+// {
+//     Eigen::Quaternion<double> cop_quat = Eigen::Quaternion<double>::Identity();
+//     double sum_weight = 0;
+//     constexpr double EPS = 1e-6;
 
-        limb_param[link_id].prev_act_force_z = 0.85 * limb_param[link_id].prev_act_force_z + 0.15 * nf(2); // filter, cut off 5[Hz]
-        tmp_filterd_fz += limb_param[link_id].prev_act_force_z;
-    }
+//     for (const LinkConstraint& constraint : constraints) {
+//         const double weight = constraint.getCOPWeight();
+//         if (constraint.getConstraintType() >= type_thre || !constraint.isZmpCalcTarget() ||
+//             weight < EPS /* to avoid zero division */) continue;
+//         sum_weight += weight;
 
-    if (tmp_filterd_fz < contact_decision_threshold) {
-        ret_zmp = cog; // 昔はact_zmpだったけど空中はcogと一致しているほうが都合がいい？
-        return false; // in the air
-    } else {
-        ret_zmp = hrp::Vector3(tmp_zmpx / tmp_fz, tmp_zmpy / tmp_fz, zmp_z);
-        return true; // on ground
-    }
-}
+//         const hrp::Link* const target = act_robot->link(constraint.getLinkId());
+//         const Eigen::Quaternion<double> contact_quat(constraint.calcActualTargetRotFromLinkState(target->R));
+//         cop_quat = cop_quat.slerp(weight / sum_weight, contact_quat);
+//     }
+
+//     return cop_quat.toRotationMatrix();
+// }
 
 }
