@@ -25,6 +25,12 @@ StateEstimator::StateEstimator(const hrp::BodyPtr& _robot, const std::string& _c
 
 void StateEstimator::calcStates(const stateInputData& input_data)
 {
+    // Actual world frame =>
+    base_rpy = hrp::rpyFromRot(m_robot->rootLink()->R);
+    foot_origin_coord = input_data.constraints.calcFootOriginCoord(m_robot);
+
+    // cog
+    cog = m_robot->calcCM();
 }
 
 hrp::Vector3 calcActZMP(const hrp::BodyPtr& act_robot,
