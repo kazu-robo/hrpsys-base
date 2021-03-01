@@ -16,6 +16,8 @@
 #include <Eigen/Geometry>
 #include <hrpUtil/EigenTypes.h>
 #include "LimbTrajectoryGenerator.h"
+#include <hrpModel/Link.h>
+#include <hrpModel/Body.h>
 
 // Memo: 着地時間が例えば遅くなった時，足は待っているのかどうか．どうやって修正するか
 
@@ -216,6 +218,7 @@ struct ConstraintsWithCount
         coord.linear() = calcCOPRotationFromConstraints(type_thre);
         return coord;
     }
+    Eigen::Isometry3d calcFootOriginCoord(const hrp::BodyPtr& _robot, const hrp::Vector3& n = hrp::Vector3::UnitZ()) const;
 
     int getConstraintIndexFromLinkId(const int id) const;
     std::vector<size_t> getConstraintIndicesFromType(const LinkConstraint::ConstraintType type) const;
