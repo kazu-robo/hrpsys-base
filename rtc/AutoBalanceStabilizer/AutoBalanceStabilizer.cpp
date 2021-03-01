@@ -141,8 +141,9 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
 
     fik = std::make_unique<hrp::FullbodyInverseKinematicsSolver>(m_robot, std::string(m_profile.instance_name), m_dt);
     st = std::make_unique<hrp::Stabilizer>(m_robot, std::string(m_profile.instance_name) + "_ST", m_dt, m_mutex);
+    std::vector<int> contacts_link_indices;
     {
-        std::vector<hrp::LinkConstraint> init_constraints = readContactPointsFromProps(prop);
+        std::vector<hrp::LinkConstraint> init_constraints = readContactPointsFromProps(prop, contacts_link_indices);
 
         // addBodyConstraint(init_constraints, m_robot);
 
@@ -324,7 +325,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onInitialize()
     additional_force_applied_point_offset = hrp::Vector3::Zero();
 
     m_act_robot = boost::make_shared<hrp::Body>(*m_robot);
-    act_se = std::make_unique<hrp::StateEstimator>(m_act_robot, std::string(m_profile.instance_name) + "_SE", m_dt, m_mutex);
+    act_se = std::make_unique<hrp::StateEstimator>(m_act_robot, std::string(m_profile.instance_name) + "_SE", m_dt, m_mutex, contacts_link_indices);
 
     return RTC::RTC_OK;
 }
@@ -363,6 +364,7 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
     readInportData();
     updateBodyParams();
     if(!gg_is_walking) gg->setConstraintToFootCoord(m_robot);
+    act_se->calcStates(hrp::stateInputData{q_act, act_rpy, act_wrenches, gg->getCurrentConstraints(loop), ref_zmp(2)});
 
     gg->setDebugLevel(m_debugLevel);
 
@@ -949,7 +951,7 @@ void AutoBalanceStabilizer::updateBodyParams()
     m_act_robot->calcForwardKinematics();
 }
 
-std::vector<hrp::LinkConstraint> AutoBalanceStabilizer::readContactPointsFromProps(const RTC::Properties& prop)
+std::vector<hrp::LinkConstraint> AutoBalanceStabilizer::readContactPointsFromProps(const RTC::Properties& prop, std::vector<int>& contacts_link_indices)
 {
     std::vector<hrp::LinkConstraint> init_constraints;
 
@@ -957,8 +959,10 @@ std::vector<hrp::LinkConstraint> AutoBalanceStabilizer::readContactPointsFromPro
     // link_id, num_contact, contact_point (3 dim) * num_contact, local_rot (axis + angle)
     const coil::vstring contact_str = coil::split(prop["contact_points"], ",");
     init_constraints.reserve(contact_str.size());
+    contacts_link_indices.reserve(contact_str.size());
     for (size_t i = 0; i < contact_str.size();) {
         std::cerr << contact_str[i] << " Index: " << m_robot->link(contact_str[i])->index << std::endl;
+        contacts_link_indices.push_back(m_robot->link(contact_str[i])->index);
         hrp::LinkConstraint constraint(m_robot->link(contact_str[i++])->index);
 
         const std::string constraint_type_str = contact_str[i++];

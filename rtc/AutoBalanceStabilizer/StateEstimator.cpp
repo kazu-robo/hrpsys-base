@@ -12,6 +12,21 @@
 
 namespace hrp {
 
+StateEstimator::StateEstimator(const hrp::BodyPtr& _robot, const std::string& _comp_name, const double _dt, std::mutex& _mutex, const std::vector<int>& link_indices)
+    : m_robot(_robot),
+      comp_name(_comp_name),
+      dt(_dt),
+      m_mutex(_mutex)
+{
+    for (const auto& id : link_indices) {
+        limb_param.emplace(id, limbParam());
+    }
+}
+
+void StateEstimator::calcStates(const stateInputData& input_data)
+{
+}
+
 hrp::Vector3 calcActZMP(const hrp::BodyPtr& act_robot,
                         const std::vector<LinkConstraint>& constraints,
                         const double zmp_z)
@@ -85,26 +100,45 @@ hrp::Vector3 calcCOPFromRobotState(const hrp::BodyPtr& act_robot,
     return cop_pos;
 }
 
-hrp::Matrix33 calcCOPRotationFromRobotState(const hrp::BodyPtr& act_robot,
-                                            const std::vector<LinkConstraint>& constraints,
-                                            const LinkConstraint::ConstraintType type_thre)
-{
-    Eigen::Quaternion<double> cop_quat = Eigen::Quaternion<double>::Identity();
-    double sum_weight = 0;
-    constexpr double EPS = 1e-6;
+// hrp::Vector3 StateEstimator::calcCOPFromRobotState(const hrp::BodyPtr& act_robot,
+//                                    const std::vector<LinkConstraint>& constraints,
+//                                    const LinkConstraint::ConstraintType type_thre)
+// {
+//     hrp::Vector3 cop_pos = hrp::Vector3::Zero();
+//     double sum_weight = 0;
 
-    for (const LinkConstraint& constraint : constraints) {
-        const double weight = constraint.getCOPWeight();
-        if (constraint.getConstraintType() >= type_thre || !constraint.isZmpCalcTarget() ||
-            weight < EPS /* to avoid zero division */) continue;
-        sum_weight += weight;
+//     for (const LinkConstraint& constraint : constraints) {
+//         if (constraint.getConstraintType() >= type_thre || !constraint.isZmpCalcTarget()) continue;
+//         const double weight = constraint.getCOPWeight();
+//         const hrp::Link* const target = act_robot->link(constraint.getLinkId());
+//         cop_pos += constraint.calcActualTargetPosFromLinkState(target->p, target->R) * weight;
+//         sum_weight += weight;
+//     }
+//     if (sum_weight > 0) cop_pos /= sum_weight;
 
-        const hrp::Link* const target = act_robot->link(constraint.getLinkId());
-        const Eigen::Quaternion<double> contact_quat(constraint.calcActualTargetRotFromLinkState(target->R));
-        cop_quat = cop_quat.slerp(weight / sum_weight, contact_quat);
-    }
+//     return cop_pos;
+// }
 
-    return cop_quat.toRotationMatrix();
-}
+// hrp::Matrix33 StateEstimator::calcCOPRotationFromRobotState(const hrp::BodyPtr& act_robot,
+//                                             const std::vector<LinkConstraint>& constraints,
+//                                             const LinkConstraint::ConstraintType type_thre)
+// {
+//     Eigen::Quaternion<double> cop_quat = Eigen::Quaternion<double>::Identity();
+//     double sum_weight = 0;
+//     constexpr double EPS = 1e-6;
+
+//     for (const LinkConstraint& constraint : constraints) {
+//         const double weight = constraint.getCOPWeight();
+//         if (constraint.getConstraintType() >= type_thre || !constraint.isZmpCalcTarget() ||
+//             weight < EPS /* to avoid zero division */) continue;
+//         sum_weight += weight;
+
+//         const hrp::Link* const target = act_robot->link(constraint.getLinkId());
+//         const Eigen::Quaternion<double> contact_quat(constraint.calcActualTargetRotFromLinkState(target->R));
+//         cop_quat = cop_quat.slerp(weight / sum_weight, contact_quat);
+//     }
+
+//     return cop_quat.toRotationMatrix();
+// }
 
 }
