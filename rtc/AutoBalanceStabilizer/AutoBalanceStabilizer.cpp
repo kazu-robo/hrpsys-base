@@ -364,7 +364,8 @@ RTC::ReturnCode_t AutoBalanceStabilizer::onExecute(RTC::UniqueId ec_id)
     readInportData();
     updateBodyParams();
     if(!gg->getWalkingState()) gg->setConstraintToFootCoord(m_robot);
-    act_se->calcStates(hrp::stateInputData{q_act, act_rpy, act_wrenches, gg->getCurrentConstraints(loop), ref_zmp(2)});
+    gg->forwardTimeStep(loop);
+    act_se->calcStates(hrp::stateInputData{q_act, act_rpy, act_wrenches, gg->getCurrentConstraints(loop), ref_zmp(2), gg->getCurConstIdx()});
 
     gg->setDebugLevel(m_debugLevel);
 
