@@ -53,12 +53,14 @@ class StateEstimator
 
     // base-link frame
     hrp::Vector3 base_frame_zmp = hrp::Vector3::Zero();
+    hrp::Vector3 base_frame_cp = hrp::Vector3::Zero();
 
     // foot-origion frame
     hrp::Vector3 foot_frame_cog = hrp::Vector3::Zero();
     hrp::Vector3 prev_foot_frame_cog = hrp::Vector3::Zero();
     hrp::Vector3 foot_frame_zmp = hrp::Vector3::Zero();
     hrp::Vector3 foot_frame_cogvel = hrp::Vector3::Zero();
+    hrp::Vector3 foot_frame_cp = hrp::Vector3::Zero();
 
     Eigen::Isometry3d foot_origin_coord = Eigen::Isometry3d::Identity();
     Eigen::Isometry3d prev_foot_origin_coord = Eigen::Isometry3d::Identity();

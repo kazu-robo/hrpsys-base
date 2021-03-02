@@ -65,6 +65,8 @@ void StateEstimator::calcStates(const stateInputData& input_data)
         }
     }
     foot_frame_cogvel = cogvel_filter->passFilter(foot_frame_cogvel);
+    foot_frame_cp = foot_frame_cog + foot_frame_cogvel / std::sqrt(g_acc / (foot_frame_cog - foot_frame_zmp)(2));
+    base_frame_cp = m_robot->rootLink()->R.transpose() * (static_cast<hrp::Vector3>(foot_origin_coord * foot_frame_cp) - m_robot->rootLink()->p); // 以前は高さをzmp(2)にして地面上に投影していたが，3次元CPとして扱うことにした
 
     for (const auto& constraint : input_data.constraints.constraints) {
         const int link_id = constraint.getLinkId();
@@ -72,6 +74,7 @@ void StateEstimator::calcStates(const stateInputData& input_data)
         limb_param[link_id].foot_frame_ee_coord.translation() = foot_origin_coord.inverse() * constraint.calcActualTargetPosFromLinkState(target->p, target->R);
         limb_param[link_id].foot_frame_ee_coord.linear() = foot_origin_coord.linear().transpose() * constraint.calcActualTargetRotFromLinkState(target->R);
     }
+    // <= foot_origin frame
 
     // set prev values
     prev_const_idx = input_data.cur_const_idx;
