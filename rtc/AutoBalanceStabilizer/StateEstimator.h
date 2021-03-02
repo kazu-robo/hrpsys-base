@@ -81,23 +81,6 @@ class StateEstimator
     void calcStates(const stateInputData& input_data);
     bool calcZMP(hrp::Vector3& ret_zmp, const hrp::ConstraintsWithCount& constraints, const double zmp_z);
     inline bool isContact(const int idx) { return limb_param[idx].prev_act_force_z > contact_decision_threshold; };
-
-    // hrp::Vector3 calcCOPFromRobotState(const hrp::BodyPtr& act_robot,
-    //                                    const std::vector<LinkConstraint>& constraints,
-    //                                    const LinkConstraint::ConstraintType type_thre = LinkConstraint::FLOAT);
-
-    // hrp::Matrix33 calcCOPRotationFromRobotState(const hrp::BodyPtr& act_robot,
-    //                                             const std::vector<LinkConstraint>& constraints,
-    //                                             const LinkConstraint::ConstraintType type_thre = LinkConstraint::FLOAT);
-
-    // inline hrp::Vector3 calcCP(const hrp::Vector3& cog, const hrp::Vector3& cog_vel, const double zmp_z,
-    //                            const double g_acc = 9.80665)
-    // {
-    //     return cog + cog_vel / std::sqrt(g_acc / (cog[2] - zmp_z));
-    // }
-
-    // bool calcIsOnGround();
-
 };
 
 }
