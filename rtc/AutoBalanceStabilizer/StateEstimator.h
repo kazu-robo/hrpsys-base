@@ -25,6 +25,7 @@ struct stateInputData
     std::vector<hrp::dvector6> wrenches;
     hrp::ConstraintsWithCount constraints;
     double zmp_z; // 常にreferenceの値を用いる
+    size_t cur_const_idx;
 };
 
 struct limbParam

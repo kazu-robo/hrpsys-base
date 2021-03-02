@@ -143,6 +143,7 @@ class GaitGenerator
         const size_t index = getConstraintIndexFromCount(constraints_list, count);
         return constraints_list[index];
     }
+    const size_t getCurConstIdx() { return cur_const_idx; };
     const std::vector<ConstraintsWithCount>& getConstraintsList() const { return constraints_list; }
     void modifyConstraintsTarget(const size_t cur_count,
                                  const size_t cwc_idx_from_current,
