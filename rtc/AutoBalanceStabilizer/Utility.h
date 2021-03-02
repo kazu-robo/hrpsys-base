@@ -86,6 +86,23 @@ inline void copyJointAnglesFromRobotModel(hrp::dvector& joint_angles,
     }
 }
 
+inline hrp::Matrix33 alignZaxis(const hrp::Matrix33& orig_rot, const hrp::Vector3& n = hrp::Vector3::UnitZ())
+{
+    // Eigen::Isometry3d::LinearPart rot;
+    hrp::Matrix33 rot;
+
+    hrp::Vector3 en = n / n.norm();
+    const hrp::Vector3 ex = hrp::Vector3::UnitX();
+    hrp::Vector3 xv1(orig_rot * ex);
+    xv1 = xv1 - xv1.dot(en) * en;
+    xv1.normalize();
+    hrp::Vector3 yv1(en.cross(xv1));
+    rot(0,0) = xv1(0); rot(1,0) = xv1(1); rot(2,0) = xv1(2);
+    rot(0,1) = yv1(0); rot(1,1) = yv1(1); rot(2,1) = yv1(2);
+    rot(0,2) = en(0);  rot(1,2) = en(1);  rot(2,2) = en(2);
+
+    return rot;
 }
 
+}
 #endif // ABST_UTILITY_H

@@ -328,6 +328,7 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     // -- Functions for OpenRTM port --
 
     void updateBodyParams();
+    void fixLegToCoords();
     std::vector<hrp::LinkConstraint> readContactPointsFromProps(const RTC::Properties& prop, std::vector<int>& contacts_link_indices);
 
     // void addBodyConstraint(std::vector<hrp::LinkConstraint>& constraints,

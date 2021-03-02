@@ -177,19 +177,7 @@ Eigen::Isometry3d ConstraintsWithCount::calcFootOriginCoord(const hrp::BodyPtr& 
         orig_quat = orig_quat.slerp(weight / sum_weight, foot_quat);
     }
     if (sum_weight > 0) coord.translation() /= sum_weight;
-    coord.linear() = orig_quat.toRotationMatrix();
-
-    { // align x-axis to en
-        hrp::Vector3 en = n / n.norm();
-        const hrp::Vector3 ex = hrp::Vector3::UnitX();
-        hrp::Vector3 xv1(coord.linear() * ex);
-        xv1 = xv1 - xv1.dot(en) * en;
-        xv1.normalize();
-        hrp::Vector3 yv1(en.cross(xv1));
-        coord.linear()(0,0) = xv1(0); coord.linear()(1,0) = xv1(1); coord.linear()(2,0) = xv1(2);
-        coord.linear()(0,1) = yv1(0); coord.linear()(1,1) = yv1(1); coord.linear()(2,1) = yv1(2);
-        coord.linear()(0,2) = en(0);  coord.linear()(1,2) = en(1);  coord.linear()(2,2) = en(2);
-    }
+    coord.linear() = hrp::alignZaxis(orig_quat.toRotationMatrix());
 
     return coord;
 }
