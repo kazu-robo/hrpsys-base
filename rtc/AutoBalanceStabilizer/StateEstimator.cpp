@@ -21,11 +21,13 @@ StateEstimator::StateEstimator(const hrp::BodyPtr& _robot, const std::string& _c
     for (const auto& id : link_indices) {
         limb_param.emplace(id, limbParam());
     }
+
+    cogvel_filter = std::make_unique<FirstOrderLowPassFilter<hrp::Vector3>>(4.0, dt, hrp::Vector3::Zero()); // 4.0 Hz
 }
 
 void StateEstimator::calcStates(const stateInputData& input_data)
 {
-    // Actual world frame =>
+    // world frame =>
     base_rpy = hrp::rpyFromRot(m_robot->rootLink()->R);
     foot_origin_coord = input_data.constraints.calcFootOriginCoord(m_robot);
 
@@ -33,6 +35,49 @@ void StateEstimator::calcStates(const stateInputData& input_data)
     cog = m_robot->calcCM();
     // zmp
     on_ground = calcZMP(zmp, input_data.constraints, input_data.zmp_z);
+    // set actual contact states
+    for (const auto& constraint : input_data.constraints.constraints) {
+        const int link_id = constraint.getLinkId();
+        limb_param[link_id].contact_states = isContact(link_id);
+    }
+    // <= world frame
+
+    // convert absolute -> base-link relative
+    base_frame_zmp = m_robot->rootLink()->R.transpose() * (zmp - m_robot->rootLink()->p);
+
+    // foot_origin frame =>
+    foot_frame_cog = foot_origin_coord.inverse() * cog;
+    foot_frame_zmp = foot_origin_coord.inverse() * zmp;
+
+    if (input_data.cur_const_idx != prev_const_idx) { // 接触状態が変わった
+        foot_frame_cogvel = (foot_origin_coord.linear().transpose() * prev_foot_origin_coord.linear()) * foot_frame_cogvel;
+    } else {
+        if (on_ground) { // on ground
+            foot_frame_cogvel = (foot_frame_cog - prev_foot_frame_cog) / dt;
+        } else {
+            if (prev_on_ground) { // take off
+                jump_time_count = 1;
+                jump_initial_velocity_z = foot_frame_cogvel(2);
+            } else { // jumping
+                ++jump_time_count;
+            }
+            foot_frame_cogvel(2) = jump_initial_velocity_z - g_acc * jump_time_count * dt;
+        }
+    }
+    foot_frame_cogvel = cogvel_filter->passFilter(foot_frame_cogvel);
+
+    for (const auto& constraint : input_data.constraints.constraints) {
+        const int link_id = constraint.getLinkId();
+        const hrp::Link* const target = dynamic_cast<hrp::Link*>(m_robot->link(link_id));
+        limb_param[link_id].foot_frame_ee_coord.translation() = foot_origin_coord.inverse() * constraint.calcActualTargetPosFromLinkState(target->p, target->R);
+        limb_param[link_id].foot_frame_ee_coord.linear() = foot_origin_coord.linear().transpose() * constraint.calcActualTargetRotFromLinkState(target->R);
+    }
+
+    // set prev values
+    prev_const_idx = input_data.cur_const_idx;
+    prev_foot_origin_coord = foot_origin_coord;
+    prev_foot_frame_cog = foot_frame_cog;
+    prev_on_ground = on_ground;
 }
 
 bool StateEstimator::calcZMP(hrp::Vector3& ret_zmp, const hrp::ConstraintsWithCount& constraints, const double zmp_z)
