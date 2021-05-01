@@ -1051,7 +1051,7 @@ bool GaitGenerator::setJumpingFootSteps(const double dt,
     //     targets.push_back(constraint.targetCoord());
     // }
 
-    running_mode = EXTENDED_MATRIX; // こいつが決定的か(run との違い)
+    // running_mode = EXTENDED_MATRIX; // こいつが決定的か(run との違い)
 
     const double take_off_z_vel = std::sqrt(2 * g_acc * default_jump_height);
     const size_t flight_phase_count = static_cast<size_t>(2 * take_off_z_vel / g_acc / dt);
