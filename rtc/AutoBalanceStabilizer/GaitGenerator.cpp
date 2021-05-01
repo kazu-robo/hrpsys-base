@@ -1083,7 +1083,10 @@ bool GaitGenerator::setJumpingFootSteps(const double dt,
                                                                                                 land_indices,
                                                                                                 targets,
                                                                                                 last_constraints.start_count + default_support_count_run,
-                                                                                                flight_phase_count);
+                                                                                                flight_phase_count,
+                                                                                                false,
+                                                                                                0,
+                                                                                                (i == fs_side.size() - 1));
         for (const auto& constraints : run_constraints) {
             new_constraints.push_back(constraints);
         }
@@ -1107,16 +1110,20 @@ bool GaitGenerator::setJumpingFootSteps(const double dt,
         }
     }
 
-    // Update constraints_list
-    std::lock_guard<std::mutex> lock(m_mutex);
-    default_step_height = default_jump_height + 0.02;
-    locomotion_mode = RUN;
-    const size_t diff_count = loop - new_constraints[0].start_count + 1;
-    for (auto& constraints : new_constraints) {
-        constraints.start_count += diff_count;
-    }
-    setConstraintsList(std::move(new_constraints));
-    setRefZMPList(loop);
+    new_constraints.back().is_stable = false;
+
+    finalizeFootSteps(new_constraints);
+
+    // // Update constraints_list
+    // std::lock_guard<std::mutex> lock(m_mutex);
+    // // default_step_height = default_jump_height + 0.02;
+    // locomotion_mode = RUN;
+    // const size_t diff_count = loop - new_constraints[0].start_count + 1;
+    // for (auto& constraints : new_constraints) {
+    //     constraints.start_count += diff_count;
+    // }
+    // setConstraintsList(std::move(new_constraints));
+    // setRefZMPList(loop);
     std::cerr << "[GaitGenerator] add jump end" << std::endl;
 }
 
