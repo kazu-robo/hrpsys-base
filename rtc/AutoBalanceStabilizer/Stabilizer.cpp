@@ -690,7 +690,10 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
 
                     ikp.d_foot_pos = clamp(ikp.d_foot_pos, ikp.eefm_pos_compensation_limit);
                 }
-
+                if ( joint_control_mode == OpenHRP::AutoBalanceStabilizerService::JOINT_TORQUE ) {
+                    ikp.d_foot_rpy = hrp::Vector3::Zero();
+                    ikp.d_foot_pos = hrp::Vector3::Zero();
+                }
                 // Actual ee frame =>
                 ikp.ee_d_foot_rpy = ee_R.transpose() * (foot_origin_rot * ikp.d_foot_rpy);
                 // tilt Check : only flat plane is supported
