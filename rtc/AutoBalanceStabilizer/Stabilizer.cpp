@@ -1871,6 +1871,7 @@ void Stabilizer::getStabilizerParam(OpenHRP::AutoBalanceStabilizerService::Stabi
     i_stp.limb_stretch_avoidance_time_const = limb_stretch_avoidance_time_const;
     i_stp.limb_length_margin.length(stikp_size);
     i_stp.detection_time_to_air = detection_count_to_mode_air * dt;
+    i_stp.detection_time_to_air = 1.0; // tmp
     for (size_t i = 0; i < 2; i++) {
         i_stp.limb_stretch_avoidance_vlimit[i] = limb_stretch_avoidance_vlimit[i];
         i_stp.root_rot_compensation_limit[i] = root_rot_compensation_limit[i];
