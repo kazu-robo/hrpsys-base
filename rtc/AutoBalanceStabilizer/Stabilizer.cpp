@@ -293,8 +293,8 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
     // std::cerr << std::endl;
 
     // todo: commit [Stabilizer] use reference zmp without first-order lead element by inverse system when calculating ref_total_moment
-    // if (st_algorithm != OpenHRP::AutoBalanceStabilizerService::TPCC) {
-    if (false) {
+    if (st_algorithm != OpenHRP::AutoBalanceStabilizerService::TPCC) {
+    // if (false) {
         // apply inverse system
         const hrp::Vector3 modified_ref_zmp = ref_zmp + eefm_zmp_delay_time_const[0] * (ref_zmp - prev_ref_zmp) / dt;
         prev_ref_zmp = ref_zmp;
