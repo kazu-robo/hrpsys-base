@@ -356,7 +356,18 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
         // <= Reference foot_origin frame
     }
 
+    if (transition_count == (-calcMaxTransitionCount() + 1)) { // max transition count. In MODE_IDLE => MODE_ST, transition_count is < 0 and upcounter. "+ 1" is upcount at the beginning of this function.
+        prev_ref_cogvel = ref_cogvel;
+        std::cerr << "[" << comp_name
+                  << "]   Reset prev_ref_cog for transition (MODE_IDLE=>MODE_ST)."
+                  << std::endl;
+    }
+
+    ref_cogacc = (ref_cogvel - prev_ref_cogvel) / dt;
+
     prev_ref_cog = ref_cog;
+    prev_ref_cogvel = ref_cogvel;
+
     // Calc swing support limb gain param
     calcSwingSupportLimbGain();
 }
@@ -534,7 +545,10 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
                 tmp_toe_heel_ratio                .push_back(toe_heel_ratio[i]);
 
                 total_ref_fz += tmp_ref_force.back()(2);
+                // TODO add acc to fz 目標加速度項
             }
+
+            total_ref_fz += total_mass * ref_cogacc.z();
 
             // All state variables are foot_origin coords relative
             if (DEBUGP(loop)) {
@@ -633,6 +647,10 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
                 const size_t idx = contact_states_index_map[ikp.ee_name];
                 ikp.ref_moment = tmp_ref_moment[idx] + ((target->R * ikp.localCOPPos + target->p) - (target->R * ikp.localp + target->p)).cross(tmp_ref_force[idx]);
                 ikp.ref_force = tmp_ref_force[idx];
+                if (!act_contact_states[i]) { // TODO isFlightPhase gg導入？
+                    ikp.ref_moment = hrp::Vector3::Zero();
+                    ikp.ref_force = hrp::Vector3::Zero();
+                }
 
                 // Actual world frame =>
                 hrp::Vector3 sensor_force = (sensor->link->R * sensor->localR) * wrenches[i].head<3>();
