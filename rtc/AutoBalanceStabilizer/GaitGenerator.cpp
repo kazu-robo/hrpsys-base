@@ -843,6 +843,7 @@ bool GaitGenerator::goPos(const Eigen::Isometry3d& target,
 {
     std::vector<ConstraintsWithCount> new_constraints;
 
+    // walking_mode = PREVIEW_CONTROL;
     size_t cur_cycle = 0;
     const size_t cycle_size = support_link_cycle.size(); // TODO: エラーチェック support == swing
     hrp::Vector3 dp;
