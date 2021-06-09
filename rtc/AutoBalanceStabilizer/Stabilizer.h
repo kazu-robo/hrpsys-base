@@ -327,7 +327,12 @@ class Stabilizer
     hrp::Vector3 prev_act_cog = hrp::Vector3::Zero();
 
     hrp::Vector3 ref_cogvel = hrp::Vector3::Zero();
+    hrp::Vector3 prev_ref_cogvel = hrp::Vector3::Zero();
     hrp::Vector3 act_cogvel = hrp::Vector3::Zero();
+
+    hrp::Vector3 ref_cogacc = hrp::Vector3::Zero();
+
+    hrp::Vector3 foot_origin_pos_ = hrp::Vector3::Zero();
 
     hrp::Vector3 ref_cp     = hrp::Vector3::Zero();
     hrp::Vector3 rel_ref_cp = hrp::Vector3::Zero();
