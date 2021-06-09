@@ -103,6 +103,7 @@ AutoBalanceStabilizer::AutoBalanceStabilizer(RTC::Manager* manager)
       m_footFrameActZmpOut("footFrameActZmp", m_footFrameActZmp),
       m_footFrameGenCogOut("footFrameGenCog", m_footFrameGenCog),
       m_footFrameActCogOut("footFrameActCog", m_footFrameActCog),
+      m_footOriginPosOut("footOriginPos", m_footOriginPos),
       m_actContactStatesOut("actContactStates", m_actContactStates),
       m_modWrenchesOut("modWrenches", m_modWrenches),
       m_baseFrameGenCpOut("baseFrameGenCp", m_baseFrameGenCp),
@@ -561,6 +562,7 @@ void AutoBalanceStabilizer::setupBasicPort()
     addOutPort("footFrameActZmp", m_footFrameActZmpOut);
     addOutPort("footFrameGenCog", m_footFrameGenCogOut);
     addOutPort("footFrameActCog", m_footFrameActCogOut);
+    addOutPort("footOriginPos", m_footOriginPosOut);
     addOutPort("actContactStates", m_actContactStatesOut);
     addOutPort("modWrenches", m_modWrenchesOut);
     addOutPort("baseFrameActCp", m_baseFrameActCpOut);
@@ -848,6 +850,12 @@ void AutoBalanceStabilizer::writeOutPortData(const hrp::Vector3& base_pos,
     m_footFrameActCog.data.y = st_port_data.origin_act_cog(1);
     m_footFrameActCog.data.z = st_port_data.origin_act_cog(2);
     m_footFrameActCogOut.write();
+
+    m_footOriginPos.tm = m_qRef.tm;
+    m_footOriginPos.data.x = st_port_data.foot_origin_pos(0);
+    m_footOriginPos.data.y = st_port_data.foot_origin_pos(1);
+    m_footOriginPos.data.z = st_port_data.foot_origin_pos(2);
+    m_footOriginPosOut.write();
 
     {
         m_actContactStates.tm = m_qRef.tm;
