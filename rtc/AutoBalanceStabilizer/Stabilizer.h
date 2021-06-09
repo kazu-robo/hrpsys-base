@@ -56,6 +56,7 @@ struct stabilizerPortData
     hrp::Vector3 rel_act_zmp;
     hrp::Vector3 origin_ref_cog;
     hrp::Vector3 origin_act_cog;
+    hrp::Vector3 foot_origin_pos;
     std::vector<double> servo_pgains;
     std::vector<double> servo_dgains;
     std::vector<double> servo_tqpgains;
@@ -129,7 +130,7 @@ class Stabilizer
             }
         }
 
-        return stabilizerPortData{act_base_rpy, joint_angles, joint_torques, ref_zmp, new_refzmp, act_zmp, rel_act_zmp, ref_cog, act_cog,
+        return stabilizerPortData{act_base_rpy, joint_angles, joint_torques, ref_zmp, new_refzmp, act_zmp, rel_act_zmp, ref_cog, act_cog, foot_origin_pos_,
                 servo_pgains, servo_dgains, servo_tqpgains, gains_transition_times, ref_wrenches};
                 // servo_pgains, servo_dgains, servo_tqpgains, servo_tqdgains, gains_transition_times, ref_wrenches};
     }

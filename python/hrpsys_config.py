@@ -983,6 +983,7 @@ class HrpsysConfigurator(object):
             self.connectLoggerPort(self.abst, 'footFrameGenZmp')
             self.connectLoggerPort(self.abst, 'footFrameModZmp')
             self.connectLoggerPort(self.abst, 'footFrameActZmp')
+            self.connectLoggerPort(self.abst, 'footOriginPos')
             self.connectLoggerPort(self.abst, 'actContactStates')
             self.connectLoggerPort(self.abst, 'modWrenches')
             self.connectLoggerPort(self.abst, 'footFrameGenCog')
