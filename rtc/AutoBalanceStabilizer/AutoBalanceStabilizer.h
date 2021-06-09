@@ -247,6 +247,8 @@ class AutoBalanceStabilizer : public RTC::DataFlowComponentBase
     OutPort<TimedPoint3D> m_footFrameGenCogOut;
     TimedPoint3D m_footFrameActCog;
     OutPort<TimedPoint3D> m_footFrameActCogOut;
+    TimedPoint3D m_footOriginPos;
+    OutPort<TimedPoint3D> m_footOriginPosOut;
     TimedBooleanSeq m_actContactStates;
     OutPort<TimedBooleanSeq> m_actContactStatesOut;
     TimedDoubleSeq m_modWrenches;

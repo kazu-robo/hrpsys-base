@@ -426,6 +426,7 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
         // Actual foot_origin frame =>
         act_zmp = foot_origin_rot.transpose() * (act_zmp - foot_origin_pos);
         act_cog = foot_origin_rot.transpose() * (act_cog - foot_origin_pos);
+        foot_origin_pos_ = foot_origin_pos;
         //act_cogvel = foot_origin_rot.transpose() * act_cogvel;
 
         if (ref_contact_states != prev_ref_contact_states) {
