@@ -651,7 +651,8 @@ void Stabilizer::calcActualParameters(const paramsFromSensors& sensor_param)
                 const size_t idx = contact_states_index_map[ikp.ee_name];
                 ikp.ref_moment = tmp_ref_moment[idx] + ((target->R * ikp.localCOPPos + target->p) - (target->R * ikp.localp + target->p)).cross(tmp_ref_force[idx]);
                 ikp.ref_force = tmp_ref_force[idx];
-                if (!act_contact_states[i]) { // TODO isFlightPhase gg導入？
+                // if (!act_contact_states[idx]) { // TODO isFlightPhase gg導入？
+                if (!act_contact_states[idx] || !ref_contact_states[idx]) { // TODO isFlightPhase gg導入？
                     ikp.ref_moment = hrp::Vector3::Zero();
                     ikp.ref_force = hrp::Vector3::Zero();
                 }
