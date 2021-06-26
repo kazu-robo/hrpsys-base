@@ -271,7 +271,10 @@ void Stabilizer::calcTargetParameters(const paramsFromAutoBalancer& abc_param)
     for (size_t i = 0; i < stikp.size(); ++i) {
         // TODO: なぜかyは0
         // const hrp::Vector3 limb_cop_offset(abc_param.limb_cop_offsets[i][0], 0, abc_param.limb_cop_offsets[i][2]);
-        const hrp::Vector3 limb_cop_offset = hrp::Vector3(0.05, 0, 0); // TODO: tmp
+        // const hrp::Vector3 limb_cop_offset = hrp::Vector3(0.05, 0, 0); // TODO: tmp
+        hrp::Vector3 limb_cop_offset; // = hrp::Vector3(0.0, 0, 0); // TODO: tmp
+        if (stikp[i].ee_name == "rleg") limb_cop_offset = hrp::Vector3(0, 0.03, 0);
+        else if (stikp[i].ee_name == "lleg") limb_cop_offset = hrp::Vector3(0, -0.03, 0);
         stikp[i].localCOPPos = stikp[i].localp + stikp[i].localR * limb_cop_offset;
         const hrp::Link* target = m_robot->link(stikp[i].target_name);
         target_ee_p[i] = target->p + target->R * stikp[i].localp;
